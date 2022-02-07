@@ -11,6 +11,10 @@ To compile type `make`. Editing the values for `CC` and `CFLAGS` in the Makefile
 
     $ make CFLAGS="-O3 -fopenmp -DDEBUG"
 
+Run all three make arguments(all check clean)
+
+    make .PHONY
+    
 Input parameter and obstacle files are all specified on the command line of the `d2q9-bgk` executable.
 
 Usage:
