@@ -36,6 +36,7 @@ To set the number of cores to use, choose one of the methods:
 2.API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
 
 3.Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
+
 4.Set Environment variables `OMP_NUM_THREADS=28` in environment
 
 ## Checking results
