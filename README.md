@@ -23,6 +23,20 @@ Usage:
 eg:
 
     $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+## Using OpenMP
+
+To set the number of cores to use, choose one of the methods:
+
+1.Set it in the SLURM job script
+
+    #SBATCH --ntasks-per-node 1
+    #SBATCH --cpus-per-task 28
+, or simply `#SBATCH --ntasks-per-node 28` to use all 28 cores
+
+2.API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
+
+3.Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
+4.Set Environment variables `OMP_NUM_THREADS=28` in environment
 
 ## Checking results
 
