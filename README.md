@@ -31,7 +31,7 @@ eg:
 
     #SBATCH --ntasks-per-node 1
     #SBATCH --cpus-per-task 28
-, or simply `#SBATCH --ntasks-per-node 28` to use all 28 cores
+, (note SLURM calls a core a "cpu"). or simply `#SBATCH --ntasks-per-node 28` to use all 28 cores
 
 2.API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
 
