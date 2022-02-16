@@ -25,7 +25,7 @@ eg:
     $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 ## Using OpenMP
 
-To set the number of cores to use, choose one of the methods:
+### To set the number of cores to use, choose one of the methods:
 
 1.Set it in the SLURM job script
 
