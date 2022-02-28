@@ -273,6 +273,9 @@ int propa_rebd_collsn(const t_param params, t_speed* cells, t_speed* tmp_cells, 
       ** appropriate directions of travel and writing into
       ** scratch space grid */
 
+      /*Fuse propagate,collision&rebound. Instead of reading from cells and writing to tmp_cells(propagate), then reading from tmp_cells and 
+      writing to cells(rebound&collision), we can do this with one read from cells and one write to tmp_cells, followed by a pointer swap 
+      between cells and tmp_cells afterwards*/
       const float cells0 = cells[ii + jj*params.nx].speeds[0]; /* central cell, no movement */
       const float cells1 = cells[x_w + jj*params.nx].speeds[1]; /* east */
       const float cells2 = cells[ii + y_s*params.nx].speeds[2]; /* north */
@@ -290,6 +293,7 @@ int propa_rebd_collsn(const t_param params, t_speed* cells, t_speed* tmp_cells, 
       {
         /* called after propagate, so taking values from scratch space
         ** mirroring, and writing into main grid */
+
         tmp_cells[ii + jj*params.nx].speeds[0] = cells0;
         tmp_cells[ii + jj*params.nx].speeds[1] = cells3;
         tmp_cells[ii + jj*params.nx].speeds[2] = cells4;
@@ -306,11 +310,6 @@ int propa_rebd_collsn(const t_param params, t_speed* cells, t_speed* tmp_cells, 
       {
         /* compute local density total */
         float local_density = 0.f;
-
-        // for (int kk = 0; kk < NSPEEDS; kk++)
-        // {
-        //   local_density += tmp_cells[ii + jj*params.nx].speeds[kk];
-        // }
 
         local_density = cells0 
                       + cells1 
@@ -356,42 +355,37 @@ int propa_rebd_collsn(const t_param params, t_speed* cells, t_speed* tmp_cells, 
         /* equilibrium densities */
         float d_equ[NSPEEDS];
         /* zero velocity density: weight w0 */
-        d_equ[0] = w0 * local_density
-                   * (1.f - u_sq / (2.f * c_sq));
+        d_equ[0] = 
+        w0 * local_density
+                   * (1.f - u_sq * 1.5f);
         /* axis speeds: weight w1 */
-        d_equ[1] = w1 * local_density * (1.f + u[1] / c_sq
-                                         + (u[1] * u[1]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[2] = w1 * local_density * (1.f + u[2] / c_sq
-                                         + (u[2] * u[2]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[3] = w1 * local_density * (1.f + u[3] / c_sq
-                                         + (u[3] * u[3]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[4] = w1 * local_density * (1.f + u[4] / c_sq
-                                         + (u[4] * u[4]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
+        d_equ[1] = w1 * local_density * (1.f + u[1] * 3.f
+                                         + (u[1] * u[1]) * 4.5f
+                                         - u_sq * 1.5f);
+        d_equ[2] = w1 * local_density * (1.f + u[2] * 3.f
+                                         + (u[2] * u[2]) * 4.5f
+                                         - u_sq * 1.5f);
+        d_equ[3] = w1 * local_density * (1.f + u[3] * 3.f
+                                         + (u[3] * u[3]) * 4.5f
+                                         - u_sq * 1.5f);
+        d_equ[4] = w1 * local_density * (1.f + u[4] * 3.f
+                                         + (u[4] * u[4]) * 4.5f
+                                         - u_sq * 1.5f);
         /* diagonal speeds: weight w2 */
-        d_equ[5] = w2 * local_density * (1.f + u[5] / c_sq
-                                         + (u[5] * u[5]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[6] = w2 * local_density * (1.f + u[6] / c_sq
-                                         + (u[6] * u[6]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[7] = w2 * local_density * (1.f + u[7] / c_sq
-                                         + (u[7] * u[7]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[8] = w2 * local_density * (1.f + u[8] / c_sq
-                                         + (u[8] * u[8]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
+        d_equ[5] = w2 * local_density * (1.f + u[5] * 3.f
+                                         + (u[5] * u[5]) * 4.5f
+                                         - u_sq * 1.5f);
+        d_equ[6] = w2 * local_density * (1.f + u[6] * 3.f
+                                         + (u[6] * u[6]) * 4.5f
+                                         - u_sq * 1.5f);
+        d_equ[7] = w2 * local_density * (1.f + u[7] * 3.f
+                                         + (u[7] * u[7]) * 4.5f
+                                         - u_sq * 1.5f);
+        d_equ[8] = w2 * local_density * (1.f + u[8] * 3.f
+                                         + (u[8] * u[8]) * 4.5f
+                                         - u_sq * 1.5f);
 
         /* relaxation step */
-        // for (int kk = 0; kk < NSPEEDS; kk++)
-        // {
-        //   cells[ii + jj*params.nx].speeds[kk] = tmp_cells[ii + jj*params.nx].speeds[kk]
-        //                                           + params.omega
-        //                                           * (d_equ[kk] - tmp_cells[ii + jj*params.nx].speeds[kk]);
-        // }
 
           tmp_cells[ii + jj*params.nx].speeds[0] = cells0 *(1.f-params.omega) 
                                                   + params.omega*d_equ[0];
