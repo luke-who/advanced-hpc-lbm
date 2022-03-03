@@ -3,7 +3,7 @@
 # export OMP_NUM_THREADS=28
 # set OMP_NUM_THREADS #This command displays the current setting of the OMP_NUM_THREADS environment variable
 module load languages/gcc/9.3.0
-module load languages/intel/2020-u4
+module load languages/intel/2020-u4 #The Intel compiler is available in the `languages/intel/2020-u4` module. This module puts advixe-cl in your path, so there will be no need to source anything
 module load intel/2017.01
 # module load vtune/2017.1.132-GCC-5.4.0-2.26
 # module load tools/valgrind/3.15.0
