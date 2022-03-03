@@ -15,7 +15,8 @@ TARGET_PLATFORM = -mtune=native
 Profile_Generate = -pg
 Unroll_loops = -funroll-all-loops
 #*******Set compiler flags*******#
-CFLAGS= -std=c99 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -qopenmp #$(Profile_Generate) $(REPORT)
+CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -g #-qopenmp 
+# CFLAGS= -std=c99 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) #-qopenmp #$(Profile_Generate) $(REPORT)
 
 Intel_advisor = -Wl -u__poll -Wl -udlclose -Wl -udlopen
 LIBS = -lm
