@@ -1,6 +1,6 @@
 # Add any `module load` or `export` commands that your code needs to
 # compile and run to this file.
-# set OMP_NUM_THREADS=28
+# export OMP_NUM_THREADS=28
 # set OMP_NUM_THREADS #This command displays the current setting of the OMP_NUM_THREADS environment variable
 module load languages/gcc/9.3.0
 module load languages/intel/2020-u4
