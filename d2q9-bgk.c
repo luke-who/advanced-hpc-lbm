@@ -81,7 +81,7 @@ typedef struct
 //   float speeds[NSPEEDS];
 // } t_speed;
 
-// Structure of Array
+// Structure of Array/Pointer
 typedef struct
 {
   float* restrict speeds_0;
@@ -271,7 +271,8 @@ int propa_rebd_collsn(const t_param params, t_speed* cells, t_speed* tmp_cells, 
     // printf("Thread ID: %d \t Number of threads:%d\n",omp_get_thread_num(),omp_get_num_threads()); //n threads before omp parallel
     // #pragma omp for collapse(2)
   for (int jj = 0; jj < params.ny; jj++)
-  {
+  { 
+    #pragma omp simd
     for (int ii = 0; ii < params.nx; ii++)
     { 
       /******************* propagate & rebound *********************/
