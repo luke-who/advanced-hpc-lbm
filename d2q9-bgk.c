@@ -101,7 +101,7 @@ typedef struct
 
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile,
-               t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
+               t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
                int** obstacles_ptr, float** av_vels_ptr);
 
 /*
@@ -109,16 +109,16 @@ int initialise(const char* paramfile, const char* obstaclefile,
 ** timestep calls, in order, the functions:
 ** accelerate_flow(), propagate(), rebound() & collision()
 */
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
+int timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
-int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells);
-int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
-int propa_rebd_collsn_av(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
+// int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells);
+// int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
+// int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
+int propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
 
 /* finalise, including freeing up allocated memory */
-int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
+int finalise(const t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
              int** obstacles_ptr, float** av_vels_ptr);
 
 /* Sum all the densities in the grid.
@@ -214,7 +214,7 @@ int main(int argc, char* argv[])
   return EXIT_SUCCESS;
 }
  
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles)
+int timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
 {
   accelerate_flow(params, cells, obstacles);
   // propagate(params, cells, tmp_cells);
@@ -273,7 +273,7 @@ int propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed*
   // #pragma omp parallel //num_threads(28)
   // {
     // printf("Thread ID: %d \t Number of threads:%d\n",omp_get_thread_num(),omp_get_num_threads()); //n threads before omp parallel
-    // #pragma omp for collapse(2)
+  // #pragma omp for collapse(2)
   for (int jj = 0; jj < params.ny; jj++)
   { 
     #pragma omp simd
@@ -421,7 +421,7 @@ int propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed*
         tmp_cells->speeds_8[ii + jj*params.nx] = cells8 *(1.f-params.omega) 
                                                 + params.omega*d_equ[8];
 
-
+        
         /******************* av_velocity *********************/
         /* loop over all non-blocked cells */
         /* ignore occupied cells */
@@ -480,14 +480,14 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
         {
           /* local density total */
           const float local_density = cells->speeds_0[ii + jj*params.nx]
-                              + cells->speeds_1[ii + jj*params.nx]
-                              + cells->speeds_2[ii + jj*params.nx]
-                              + cells->speeds_3[ii + jj*params.nx]
-                              + cells->speeds_4[ii + jj*params.nx]
-                              + cells->speeds_5[ii + jj*params.nx]
-                              + cells->speeds_6[ii + jj*params.nx]
-                              + cells->speeds_7[ii + jj*params.nx]
-                              + cells->speeds_8[ii + jj*params.nx];
+                                    + cells->speeds_1[ii + jj*params.nx]
+                                    + cells->speeds_2[ii + jj*params.nx]
+                                    + cells->speeds_3[ii + jj*params.nx]
+                                    + cells->speeds_4[ii + jj*params.nx]
+                                    + cells->speeds_5[ii + jj*params.nx]
+                                    + cells->speeds_6[ii + jj*params.nx]
+                                    + cells->speeds_7[ii + jj*params.nx]
+                                    + cells->speeds_8[ii + jj*params.nx];
 
           /* x-component of velocity */
           const float u_x = (cells->speeds_1[ii + jj*params.nx]
@@ -517,7 +517,7 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 }
 
 int initialise(const char* paramfile, const char* obstaclefile,
-               t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
+               t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
                int** obstacles_ptr, float** av_vels_ptr)
 {
   char   message[1024];  /* message buffer */
@@ -688,7 +688,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   return EXIT_SUCCESS;
 }
 
-int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
+int finalise(const t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
              int** obstacles_ptr, float** av_vels_ptr)
 {
   /*
