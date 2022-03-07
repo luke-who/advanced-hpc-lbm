@@ -176,12 +176,12 @@ int main(int argc, char* argv[])
 
   for (int tt = 0; tt < params.maxIters; tt++)
   {
-    av_vels[tt] = timestep(params, cells, tmp_cells, obstacles);
+    timestep(params, cells, tmp_cells, obstacles);
     /*pointer swap here*/
     t_speed *tmp_tmp_cells = cells;
     cells = tmp_cells;
     tmp_cells = tmp_tmp_cells;
-    // av_vels[tt] = av_velocity(params, cells, obstacles);
+    av_vels[tt] = av_velocity(params, cells, obstacles);
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
@@ -421,47 +421,12 @@ int propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed*
         tmp_cells->speeds_8[ii + jj*params.nx] = cells8 *(1.f-params.omega) 
                                                 + params.omega*d_equ[8];
 
-        
-        /******************* av_velocity *********************/
-        /* loop over all non-blocked cells */
-        /* ignore occupied cells */
-        /* local density total */
-        const float local_density_av  = tmp_cells->speeds_0[ii + jj*params.nx]
-                                      + tmp_cells->speeds_1[ii + jj*params.nx]
-                                      + tmp_cells->speeds_2[ii + jj*params.nx]
-                                      + tmp_cells->speeds_3[ii + jj*params.nx]
-                                      + tmp_cells->speeds_4[ii + jj*params.nx]
-                                      + tmp_cells->speeds_5[ii + jj*params.nx]
-                                      + tmp_cells->speeds_6[ii + jj*params.nx]
-                                      + tmp_cells->speeds_7[ii + jj*params.nx]
-                                      + tmp_cells->speeds_8[ii + jj*params.nx];
-
-        /* x-component of velocity */
-        const float u_x_av = (tmp_cells->speeds_1[ii + jj*params.nx]
-                            + tmp_cells->speeds_5[ii + jj*params.nx]
-                            + tmp_cells->speeds_8[ii + jj*params.nx]
-                           - (tmp_cells->speeds_3[ii + jj*params.nx]
-                            + tmp_cells->speeds_6[ii + jj*params.nx]
-                            + tmp_cells->speeds_7[ii + jj*params.nx]))
-                            / local_density_av;
-        /* compute y velocity component */
-        const float u_y_av = (tmp_cells->speeds_2[ii + jj*params.nx]
-                            + tmp_cells->speeds_5[ii + jj*params.nx]
-                            + tmp_cells->speeds_6[ii + jj*params.nx]
-                           - (tmp_cells->speeds_4[ii + jj*params.nx]
-                            + tmp_cells->speeds_7[ii + jj*params.nx]
-                            + tmp_cells->speeds_8[ii + jj*params.nx]))
-                            / local_density_av;
-        /* accumulate the norm of x- and y- velocity components */
-        tot_u += sqrtf((u_x_av * u_x_av) + (u_y_av * u_y_av));
-        /* increase counter of inspected cells */
-        ++tot_cells;
       }
     }
   }
   // }
 
-  return tot_u / (float)tot_cells;
+  return EXIT_SUCCESS;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles)
