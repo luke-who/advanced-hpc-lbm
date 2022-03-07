@@ -616,15 +616,9 @@ int initialise(const char* paramfile, const char* obstaclefile,
       (*cells_ptr)->speeds_6[ii + jj*params->nx] = w2;
       (*cells_ptr)->speeds_7[ii + jj*params->nx] = w2;
       (*cells_ptr)->speeds_8[ii + jj*params->nx] = w2;
-    }
-  }
-  
-  printf("%f",(*cells_ptr)->speeds_8[0]);
+
+
   /* first set all cells in obstacle array to zero */
-  for (int jj = 0; jj < params->ny; jj++)
-  {
-    for (int ii = 0; ii < params->nx; ii++)
-    {
       (*obstacles_ptr)[ii + jj*params->nx] = 0;
     }
   }
