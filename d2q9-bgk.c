@@ -214,7 +214,7 @@ int main(int argc, char* argv[])
 float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
 {
   accelerate_flow(params, cells, obstacles);
-  
+
   return propa_rebd_collsn_av(params, cells, tmp_cells, obstacles);;
 }
 
