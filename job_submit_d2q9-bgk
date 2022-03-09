@@ -4,11 +4,12 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node 1
 #SBATCH --cpus-per-task 1
-#SBATCH --time 00:10:00
+#SBATCH --time 00:15:00
 #SBATCH --partition veryshort
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
 ##SBATCH --exclude=compute100
+#SBATCH --exclusive
 #SBATCH --output d2q9-bgk.out
 
 echo Running on host `hostname`

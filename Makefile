@@ -8,8 +8,8 @@ CC=icc
 
 REPORT = -qopt-report=5 -qopt-report-phase=vec
 # OPTMLEVEL = -O0
-# OPTMLEVEL = -Ofast -xAVX
-OPTMLEVEL = -Ofast -fast -xAVX
+OPTMLEVEL = -Ofast -xAVX
+# OPTMLEVEL = -Ofast -xAVX #-fast #note -fast would make Intel Advisor stop working
 
 TARGET_PLATFORM = -mtune=native
 # TARGET_PLATFORM = -xHOST #-xbroadwell
@@ -17,7 +17,7 @@ Profile_Generate = -pg
 Unroll_loops = -funroll-all-loops
 #*******Set compiler flags*******#
 # CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -g #-qopenmp #NOALIAS
-CFLAGS= -std=c99 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -qopenmp #$(Profile_Generate) $(REPORT)
+CFLAGS= -std=c99 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -g -qopenmp #$(Profile_Generate) $(REPORT)
 
 Intel_advisor = -Wl,-u__poll -Wl,-udlclose -Wl,-udlopen
 
