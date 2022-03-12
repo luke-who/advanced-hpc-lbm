@@ -20,10 +20,6 @@ echo `echo $SLURM_JOB_NODELIST | uniq`
 #! Run the executable
 
 
-OMP_NUM_THREADS=28
-OMP_PROC_BIND=true
-OMP_PLACES=core
-
 #./d2q9-bgk input_128x128.params obstacles_128x128.dat
 
 #./d2q9-bgk input_128x128.params obstacles_128x128.dat
