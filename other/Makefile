@@ -3,19 +3,13 @@
 EXE=d2q9-bgk
 
 CC=icc
-CFLAGS= -std=c11 -Wall -Ofast -xAVX -qopenmp -qopt-report=5
+CFLAGS= -std=c11 -Wall -fast -xAVX2 -qopenmp -no-prec-div -mno-ieee-fp -vec-guard-write -mtune=native -finline-functions
 LIBS = -lm
 
 FINAL_STATE_FILE=./final_state.dat
 AV_VELS_FILE=./av_vels.dat
-#REF_FINAL_STATE_FILE=check/128x128.final_state.dat
-#REF_AV_VELS_FILE=check/128x128.av_vels.dat
-
-REF_FINAL_STATE_FILE=check/256x256.final_state.dat
-REF_AV_VELS_FILE=check/256x256.av_vels.dat
-
-#REF_FINAL_STATE_FILE=check/128x256.final_state.dat
-#REF_AV_VELS_FILE=check/128x256.av_vels.dat
+REF_FINAL_STATE_FILE=check/1024x1024.final_state.dat
+REF_AV_VELS_FILE=check/1024x1024.av_vels.dat
 
 all: $(EXE)
 

@@ -5,8 +5,8 @@
 #SBATCH --ntasks-per-node 28
 #SBATCH --time 00:30:00
 #SBATCH --partition veryshort
-#SBATCH --reservation COMS30005
-#SBATCH --account COMS30005
+#SBATCH --reservation COSC026662
+#SBATCH --account COSC026662
 #SBATCH --output d2q9-bgk.out
 #SBATCH --exclusive
 
@@ -30,8 +30,8 @@ OMP_PLACES=core
 
 #./d2q9-bgk input_128x256.params obstacles_128x256.dat
 
-./d2q9-bgk input_256x256.params obstacles_256x256.dat
+# ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 #./d2q9-bgk input_256x256.params obstacles_256x256.dat
 
-#./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
