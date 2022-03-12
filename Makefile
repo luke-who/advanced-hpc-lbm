@@ -17,7 +17,7 @@ Profile_Generate = -pg
 Unroll_loops = -funroll-all-loops
 #*******Set compiler flags*******#
 # CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -g #-qopenmp #NOALIAS
-CFLAGS= -std=c99 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -g -qopenmp #$(Profile_Generate) $(REPORT)
+CFLAGS= -std=c99 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg -qopenmp $(REPORT) #$(Profile_Generate) 
 
 Intel_advisor = -Wl,-u__poll -Wl,-udlclose -Wl,-udlopen
 
@@ -27,9 +27,9 @@ LIBS = -lm
 FINAL_STATE_FILE=./final_state.dat
 AV_VELS_FILE=./av_vels.dat
 
-DIM=128
+# DIM=128
 # DIM=256
-# DIM=1024
+DIM=1024
 #*******Set the referenced final state & av_velocity files*******#
 REF_FINAL_STATE_FILE=check/$(DIM)x$(DIM).final_state.dat
 REF_AV_VELS_FILE=check/$(DIM)x$(DIM).av_vels.dat
