@@ -110,8 +110,8 @@ int initialise(const char* paramfile, const char* obstaclefile,
 ** timestep calls, in order, the functions:
 ** accelerate_flow(), propagate(), rebound() & collision()
 */
-float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
-int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
+float timestep(const t_param params, t_speed cells, t_speed* restrict tmp_cells, int* obstacles);
+int accelerate_flow(const t_param params, t_speed cells, int* obstacles);
 float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
 
@@ -121,7 +121,7 @@ int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restri
 
 /* Sum all the densities in the grid.
 ** The total should remain constant from one timestep to the next. */
-float total_density(const t_param params, t_speed* cells);
+float total_density(const t_param params, t_speed cells);
 
 /* compute average velocity */
 float av_velocity(const t_param params, t_speed* cells, int* obstacles);
@@ -171,10 +171,10 @@ int main(int argc, char* argv[])
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   comp_tic=init_toc;
 
-  #pragma omp simd
+
   for (int tt = 0; tt < params.maxIters; tt++)
   {
-    av_vels[tt] = timestep(params, &cells, &tmp_cells, obstacles);
+    av_vels[tt] = timestep(params, cells, &tmp_cells, obstacles);
     /*pointer swap here*/
     t_speed tmp_tmp_cells = cells;
     cells = tmp_cells;
@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
-    printf("tot density: %.12E\n", total_density(params, &cells));
+    printf("tot density: %.12E\n", total_density(params, cells));
 #endif
   }
   
@@ -212,14 +212,14 @@ int main(int argc, char* argv[])
   return EXIT_SUCCESS;
 }
  
-float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
+float timestep(const t_param params, t_speed cells, t_speed* restrict tmp_cells, int* obstacles)
 {
   accelerate_flow(params, cells, obstacles);
 
-  return propa_rebd_collsn_av(params, cells, tmp_cells, obstacles);
+  return propa_rebd_collsn_av(params, &cells, tmp_cells, obstacles);
 }
 
-int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
+int accelerate_flow(const t_param params, t_speed cells, int* obstacles)
 {
   /* compute weighting factors */
   const float w1 = params.density * params.accel / 9.f;
@@ -228,39 +228,39 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
   /* modify the 2nd row of the grid */
   const int jj = params.ny - 2;
 
-  // __assume_aligned(cells->speeds_0, 64);
-  // __assume_aligned(cells->speeds_1, 64);
-  // __assume_aligned(cells->speeds_2, 64);
-  // __assume_aligned(cells->speeds_3, 64);
-  // __assume_aligned(cells->speeds_4, 64);
-  // __assume_aligned(cells->speeds_5, 64);
-  // __assume_aligned(cells->speeds_6, 64);
-  // __assume_aligned(cells->speeds_7, 64);
-  // __assume_aligned(cells->speeds_8, 64);
+  __assume_aligned(cells.speeds_0, 64);
+  __assume_aligned(cells.speeds_1, 64);
+  __assume_aligned(cells.speeds_2, 64);
+  __assume_aligned(cells.speeds_3, 64);
+  __assume_aligned(cells.speeds_4, 64);
+  __assume_aligned(cells.speeds_5, 64);
+  __assume_aligned(cells.speeds_6, 64);
+  __assume_aligned(cells.speeds_7, 64);
+  __assume_aligned(cells.speeds_8, 64);
 
-  // __assume_aligned(obstacles, 64);
+  __assume_aligned(obstacles, 64);
 
-  // __assume(params.nx%2==0);
+  __assume(params.nx%2==0);
 
-  // #pragma omp parallel for simd//num_threads(28)
-  #pragma omp simd
+  #pragma omp parallel for simd//num_threads(28)
+  // #pragma omp simd
   for (int ii = 0; ii < params.nx; ii++)
   { 
     /* if the cell is not occupied and
     ** we don't send a negative density */
     if (!obstacles[ii + jj*params.nx]
-        && (cells->speeds_3[ii + jj*params.nx] - w1) > 0.f
-        && (cells->speeds_6[ii + jj*params.nx] - w2) > 0.f
-        && (cells->speeds_7[ii + jj*params.nx] - w2) > 0.f)
+        && (cells.speeds_3[ii + jj*params.nx] - w1) > 0.f
+        && (cells.speeds_6[ii + jj*params.nx] - w2) > 0.f
+        && (cells.speeds_7[ii + jj*params.nx] - w2) > 0.f)
     {
       /* increase 'east-side' densities */
-      cells->speeds_1[ii + jj*params.nx] += w1;
-      cells->speeds_5[ii + jj*params.nx] += w2;
-      cells->speeds_8[ii + jj*params.nx] += w2;
+      cells.speeds_1[ii + jj*params.nx] += w1;
+      cells.speeds_5[ii + jj*params.nx] += w2;
+      cells.speeds_8[ii + jj*params.nx] += w2;
       /* decrease 'west-side' densities */
-      cells->speeds_3[ii + jj*params.nx] -= w1;
-      cells->speeds_6[ii + jj*params.nx] -= w2;
-      cells->speeds_7[ii + jj*params.nx] -= w2;
+      cells.speeds_3[ii + jj*params.nx] -= w1;
+      cells.speeds_6[ii + jj*params.nx] -= w2;
+      cells.speeds_7[ii + jj*params.nx] -= w2;
     }
   }
 
@@ -489,47 +489,43 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
   __assume(params.ny%128==0);
 
   /* loop over all non-blocked cells */
-    // #pragma omp parallel for reduction(+:tot_cells,tot_u)
+    #pragma omp parallel for reduction(+:tot_cells,tot_u)
     for (int jj = 0; jj < params.ny; jj++)
     { 
       #pragma omp simd
       for (int ii = 0; ii < params.nx; ii++)
       {
-        /* ignore occupied cells */
-        if (!obstacles[ii + jj*params.nx])
-        {
-          /* local density total */
-          const float local_density = cells->speeds_0[ii + jj*params.nx]
-                                    + cells->speeds_1[ii + jj*params.nx]
-                                    + cells->speeds_2[ii + jj*params.nx]
-                                    + cells->speeds_3[ii + jj*params.nx]
-                                    + cells->speeds_4[ii + jj*params.nx]
-                                    + cells->speeds_5[ii + jj*params.nx]
-                                    + cells->speeds_6[ii + jj*params.nx]
-                                    + cells->speeds_7[ii + jj*params.nx]
-                                    + cells->speeds_8[ii + jj*params.nx];
+        /* local density total */
+        const float local_density = cells->speeds_0[ii + jj*params.nx]
+                                  + cells->speeds_1[ii + jj*params.nx]
+                                  + cells->speeds_2[ii + jj*params.nx]
+                                  + cells->speeds_3[ii + jj*params.nx]
+                                  + cells->speeds_4[ii + jj*params.nx]
+                                  + cells->speeds_5[ii + jj*params.nx]
+                                  + cells->speeds_6[ii + jj*params.nx]
+                                  + cells->speeds_7[ii + jj*params.nx]
+                                  + cells->speeds_8[ii + jj*params.nx];
 
-          /* x-component of velocity */
-          const float u_x = (cells->speeds_1[ii + jj*params.nx]
-                           + cells->speeds_5[ii + jj*params.nx]
-                           + cells->speeds_8[ii + jj*params.nx]
-                          - (cells->speeds_3[ii + jj*params.nx]
-                           + cells->speeds_6[ii + jj*params.nx]
-                           + cells->speeds_7[ii + jj*params.nx]))
-                          / local_density;
-          /* compute y velocity component */
-          const float u_y = (cells->speeds_2[ii + jj*params.nx]
-                           + cells->speeds_5[ii + jj*params.nx]
-                           + cells->speeds_6[ii + jj*params.nx]
-                          - (cells->speeds_4[ii + jj*params.nx]
-                           + cells->speeds_7[ii + jj*params.nx]
-                           + cells->speeds_8[ii + jj*params.nx]))
-                          / local_density;
-          /* accumulate the norm of x- and y- velocity components */
-          tot_u += sqrtf((u_x * u_x) + (u_y * u_y));
-          /* increase counter of inspected cells */
-          ++tot_cells;
-        }
+        /* x-component of velocity */
+        const float u_x = (cells->speeds_1[ii + jj*params.nx]
+                          + cells->speeds_5[ii + jj*params.nx]
+                          + cells->speeds_8[ii + jj*params.nx]
+                        - (cells->speeds_3[ii + jj*params.nx]
+                          + cells->speeds_6[ii + jj*params.nx]
+                          + cells->speeds_7[ii + jj*params.nx]))
+                        / local_density;
+        /* compute y velocity component */
+        const float u_y = (cells->speeds_2[ii + jj*params.nx]
+                          + cells->speeds_5[ii + jj*params.nx]
+                          + cells->speeds_6[ii + jj*params.nx]
+                        - (cells->speeds_4[ii + jj*params.nx]
+                          + cells->speeds_7[ii + jj*params.nx]
+                          + cells->speeds_8[ii + jj*params.nx]))
+                        / local_density;
+        /* accumulate the norm of x- and y- velocity components */
+        tot_u += (!obstacles[jj*params.nx + ii]) ? sqrtf((u_x * u_x) + (u_y * u_y)) : 0;
+        /* increase counter of inspected cells */
+        tot_cells += (!obstacles[jj*params.nx + ii] ? 1 : 0); //todo:this can be precalculated & defined as a constant outside the loop
       }
     }
 
@@ -646,7 +642,6 @@ int initialise(const char* paramfile, const char* obstaclefile,
   const float w1 = params->density      / 9.f;
   const float w2 = params->density      / 36.f;
 
-  __assume_aligned(cells_ptr, 64); 
   __assume_aligned(cells_ptr->speeds_0, 64);
   __assume_aligned(cells_ptr->speeds_1, 64);
   __assume_aligned(cells_ptr->speeds_2, 64);
@@ -657,7 +652,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   __assume_aligned(cells_ptr->speeds_7, 64);
   __assume_aligned(cells_ptr->speeds_8, 64);
 
-  // __assume_aligned(*obstacles_ptr, 64);
+  __assume_aligned(*obstacles_ptr, 64);
 
   // __assume((*params).nx%128==0);
   // __assume((*params).ny%128==0);
@@ -771,19 +766,19 @@ float calc_reynolds(const t_param params, t_speed* cells, int* obstacles)
   return av_velocity(params, cells, obstacles) * params.reynolds_dim / viscosity;
 }
 
-float total_density(const t_param params, t_speed* cells)
+float total_density(const t_param params, t_speed cells)
 {
   float total = 0.f;  /* accumulator */
 
-  __assume_aligned(cells->speeds_0, 64);
-  __assume_aligned(cells->speeds_1, 64);
-  __assume_aligned(cells->speeds_2, 64);
-  __assume_aligned(cells->speeds_3, 64);
-  __assume_aligned(cells->speeds_4, 64);
-  __assume_aligned(cells->speeds_5, 64);
-  __assume_aligned(cells->speeds_6, 64);
-  __assume_aligned(cells->speeds_7, 64);
-  __assume_aligned(cells->speeds_8, 64);
+  __assume_aligned(cells.speeds_0, 64);
+  __assume_aligned(cells.speeds_1, 64);
+  __assume_aligned(cells.speeds_2, 64);
+  __assume_aligned(cells.speeds_3, 64);
+  __assume_aligned(cells.speeds_4, 64);
+  __assume_aligned(cells.speeds_5, 64);
+  __assume_aligned(cells.speeds_6, 64);
+  __assume_aligned(cells.speeds_7, 64);
+  __assume_aligned(cells.speeds_8, 64);
 
   __assume(params.nx%128==0);
   __assume(params.ny%128==0);
@@ -794,15 +789,15 @@ float total_density(const t_param params, t_speed* cells)
       #pragma omp simd
       for (int ii = 0; ii < params.nx; ii++)
       {
-        total = cells->speeds_0[ii + jj*params.nx]
-              + cells->speeds_1[ii + jj*params.nx]
-              + cells->speeds_2[ii + jj*params.nx]
-              + cells->speeds_3[ii + jj*params.nx]
-              + cells->speeds_4[ii + jj*params.nx]
-              + cells->speeds_5[ii + jj*params.nx]
-              + cells->speeds_6[ii + jj*params.nx]
-              + cells->speeds_7[ii + jj*params.nx]
-              + cells->speeds_8[ii + jj*params.nx];
+        total = cells.speeds_0[ii + jj*params.nx]
+              + cells.speeds_1[ii + jj*params.nx]
+              + cells.speeds_2[ii + jj*params.nx]
+              + cells.speeds_3[ii + jj*params.nx]
+              + cells.speeds_4[ii + jj*params.nx]
+              + cells.speeds_5[ii + jj*params.nx]
+              + cells.speeds_6[ii + jj*params.nx]
+              + cells.speeds_7[ii + jj*params.nx]
+              + cells.speeds_8[ii + jj*params.nx];
       }
     }
 

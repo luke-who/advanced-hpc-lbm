@@ -53,5 +53,5 @@ run:
 cat:
 	cat d2q9-bgk.out
 clean:
-	rm -f $(EXE) $(EXE).out
+	rm -f $(EXE) $(EXE).out $(EXE).optrpt
 	
