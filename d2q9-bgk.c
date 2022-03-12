@@ -71,6 +71,7 @@ typedef struct
   float density;       /* density per link */
   float accel;         /* density redistribution */
   float omega;         /* relaxation parameter */
+  int tot_cells;
 } t_param;
 
 
@@ -101,7 +102,7 @@ typedef struct
 
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile,
-               t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
+               t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr,
                int** obstacles_ptr, float** av_vels_ptr);
 
 /*
@@ -115,7 +116,7 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
 
 /* finalise, including freeing up allocated memory */
-int finalise(const t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
+int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr,
              int** obstacles_ptr, float** av_vels_ptr);
 
 /* Sum all the densities in the grid.
@@ -141,8 +142,8 @@ int main(int argc, char* argv[])
   char*    paramfile = NULL;    /* name of the input parameter file */
   char*    obstaclefile = NULL; /* name of a the input obstacle file */
   t_param  params;              /* struct to hold parameter values */
-  t_speed* cells     = NULL;    /* grid containing fluid densities */
-  t_speed* tmp_cells = NULL;    /* scratch space */
+  t_speed cells;         /* grid containing fluid densities */
+  t_speed tmp_cells;   /* scratch space */
   int*     obstacles = NULL;    /* grid indicating which cells are blocked */
   float* av_vels   = NULL;     /* a record of the av. velocity computed for each timestep */
   struct timeval timstr;                                                             /* structure to hold elapsed time */
@@ -173,16 +174,16 @@ int main(int argc, char* argv[])
 
   for (int tt = 0; tt < params.maxIters; tt++)
   {
-    av_vels[tt] = timestep(params, cells, tmp_cells, obstacles);
+    av_vels[tt] = timestep(params, &cells, &tmp_cells, obstacles);
     /*pointer swap here*/
-    t_speed *tmp_tmp_cells = cells;
+    t_speed tmp_tmp_cells = cells;
     cells = tmp_cells;
     tmp_cells = tmp_tmp_cells;
     // av_vels[tt] = av_velocity(params, cells, obstacles);
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
-    printf("tot density: %.12E\n", total_density(params, cells));
+    printf("tot density: %.12E\n", total_density(params, &cells));
 #endif
   }
   
@@ -200,12 +201,12 @@ int main(int argc, char* argv[])
   
   /* write final values and free memory */
   printf("==done==\n");
-  printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells, obstacles));
+  printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, &cells, obstacles));
   printf("Elapsed Init time:\t\t\t%.6lf (s)\n",    init_toc - init_tic);
   printf("Elapsed Compute time:\t\t\t%.6lf (s)\n", comp_toc - comp_tic);
   printf("Elapsed Collate time:\t\t\t%.6lf (s)\n", col_toc  - col_tic);
   printf("Elapsed Total time:\t\t\t%.6lf (s)\n",   tot_toc  - tot_tic);
-  write_values(params, cells, obstacles, av_vels);
+  write_values(params, &cells, obstacles, av_vels);
   finalise(&params, &cells, &tmp_cells, &obstacles, &av_vels);
 
   return EXIT_SUCCESS;
@@ -241,7 +242,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
 
   __assume(params.nx%2==0);
 
-  // #pragma omp parallel for //num_threads(28)
+  #pragma omp parallel for simd//num_threads(28)
   // #pragma omp simd
   for (int ii = 0; ii < params.nx; ii++)
   { 
@@ -268,8 +269,27 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
 
 float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
 {
+  float* restrict cells_speeds_0 = cells->speeds_0;
+  float* restrict cells_speeds_1 = cells->speeds_1;
+  float* restrict cells_speeds_2 = cells->speeds_2;
+  float* restrict cells_speeds_3 = cells->speeds_3;
+  float* restrict cells_speeds_4 = cells->speeds_4;
+  float* restrict cells_speeds_5 = cells->speeds_5;
+  float* restrict cells_speeds_6 = cells->speeds_6;
+  float* restrict cells_speeds_7 = cells->speeds_7;
+  float* restrict cells_speeds_8 = cells->speeds_8;
 
-  int tot_cells = 0;  /* no. of cells used in calculation */
+  float* restrict tmp_cells_speeds_0 = tmp_cells->speeds_0;
+  float* restrict tmp_cells_speeds_1 = tmp_cells->speeds_1;
+  float* restrict tmp_cells_speeds_2 = tmp_cells->speeds_2;
+  float* restrict tmp_cells_speeds_3 = tmp_cells->speeds_3;
+  float* restrict tmp_cells_speeds_4 = tmp_cells->speeds_4;
+  float* restrict tmp_cells_speeds_5 = tmp_cells->speeds_5;
+  float* restrict tmp_cells_speeds_6 = tmp_cells->speeds_6;
+  float* restrict tmp_cells_speeds_7 = tmp_cells->speeds_7;
+  float* restrict tmp_cells_speeds_8 = tmp_cells->speeds_8;
+
+  int tot_cells = 0;    /* no. of cells used in calculation */
   float tot_u = 0.f;          /* accumulated magnitudes of velocity for each cell */
 
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
@@ -277,36 +297,54 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
   const float w1 = 1.f / 9.f;  /* weighting factor */
   const float w2 = 1.f / 36.f; /* weighting factor */
 
-  __assume_aligned(cells->speeds_0, 64);
-  __assume_aligned(cells->speeds_1, 64);
-  __assume_aligned(cells->speeds_2, 64);
-  __assume_aligned(cells->speeds_3, 64);
-  __assume_aligned(cells->speeds_4, 64);
-  __assume_aligned(cells->speeds_5, 64);
-  __assume_aligned(cells->speeds_6, 64);
-  __assume_aligned(cells->speeds_7, 64);
-  __assume_aligned(cells->speeds_8, 64);
+  __assume_aligned(cells_speeds_0, 64);
+  __assume_aligned(cells_speeds_1, 64);
+  __assume_aligned(cells_speeds_2, 64);
+  __assume_aligned(cells_speeds_3, 64);
+  __assume_aligned(cells_speeds_4, 64);
+  __assume_aligned(cells_speeds_5, 64);
+  __assume_aligned(cells_speeds_6, 64);
+  __assume_aligned(cells_speeds_7, 64);
+  __assume_aligned(cells_speeds_8, 64);
 
-  __assume_aligned(tmp_cells->speeds_0, 64);
-  __assume_aligned(tmp_cells->speeds_1, 64);
-  __assume_aligned(tmp_cells->speeds_2, 64);
-  __assume_aligned(tmp_cells->speeds_3, 64);
-  __assume_aligned(tmp_cells->speeds_4, 64);
-  __assume_aligned(tmp_cells->speeds_5, 64);
-  __assume_aligned(tmp_cells->speeds_6, 64);
-  __assume_aligned(tmp_cells->speeds_7, 64);
-  __assume_aligned(tmp_cells->speeds_8, 64);
+  __assume_aligned(tmp_cells_speeds_0, 64);
+  __assume_aligned(tmp_cells_speeds_1, 64);
+  __assume_aligned(tmp_cells_speeds_2, 64);
+  __assume_aligned(tmp_cells_speeds_3, 64);
+  __assume_aligned(tmp_cells_speeds_4, 64);
+  __assume_aligned(tmp_cells_speeds_5, 64);
+  __assume_aligned(tmp_cells_speeds_6, 64);
+  __assume_aligned(tmp_cells_speeds_7, 64);
+  __assume_aligned(tmp_cells_speeds_8, 64);
 
   __assume_aligned(obstacles, 64);
 
   __assume(params.nx%2==0);
+  __assume(params.nx%4==0);
+  __assume(params.nx%8==0);
+  __assume(params.nx%16==0);
+  __assume(params.nx%32==0);
+  __assume(params.nx%64==0);
+  __assume(params.nx%128==0);
+
   __assume(params.ny%2==0);
+  __assume(params.ny%4==0);
+  __assume(params.ny%8==0);
+  __assume(params.ny%16==0);
+  __assume(params.ny%32==0);
+  __assume(params.ny%64==0);
+  __assume(params.ny%128==0);
+
+  // __assume(tot_cells%2==0);
+  // __assume(tot_cells%4==0);
+  // __assume(tot_cells%8==0);
+  // __assume(tot_cells%16==0);
   /* loop over _all_ cells */
   // printf("Thread ID: %d \t Number of threads:%d\n",omp_get_thread_num(),omp_get_num_threads()); //1 thread before omp parallel
-  // #pragma omp parallel //num_threads(28)
-  // {
+  #pragma omp parallel //num_threads(28)
+  {
     // printf("Thread ID: %d \t Number of threads:%d\n",omp_get_thread_num(),omp_get_num_threads()); //n threads before omp parallel
-    // #pragma omp for simd collapse(2) reduction(+:tot_cells,tot_u) //schedule(static)
+    #pragma omp for reduction(+:tot_cells,tot_u) //schedule(static)
     for (int jj = 0; jj < params.ny; jj++)
     { 
       #pragma omp simd
@@ -326,15 +364,15 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
         /*Fuse propagate,collision&rebound. Instead of reading from cells and writing to tmp_cells(propagate), then reading from tmp_cells and 
         writing to cells(rebound&collision), we can do this with one read from cells and one write to tmp_cells, followed by a pointer swap 
         between cells and tmp_cells afterwards*/
-        const float cells0 = cells->speeds_0[ii + jj*params.nx]; /* central cell, no movement */
-        const float cells1 = cells->speeds_1[x_w + jj*params.nx]; /* east */
-        const float cells2 = cells->speeds_2[ii + y_s*params.nx]; /* north */
-        const float cells3 = cells->speeds_3[x_e + jj*params.nx]; /* west */
-        const float cells4 = cells->speeds_4[ii + y_n*params.nx]; /* south */
-        const float cells5 = cells->speeds_5[x_w + y_s*params.nx]; /* north-east */
-        const float cells6 = cells->speeds_6[x_e + y_s*params.nx]; /* north-west */
-        const float cells7 = cells->speeds_7[x_e + y_n*params.nx]; /* south-west */
-        const float cells8 = cells->speeds_8[x_w + y_n*params.nx]; /* south-east */
+        const float cells0 = cells_speeds_0[ii + jj*params.nx]; /* central cell, no movement */
+        const float cells1 = cells_speeds_1[x_w + jj*params.nx]; /* east */
+        const float cells2 = cells_speeds_2[ii + y_s*params.nx]; /* north */
+        const float cells3 = cells_speeds_3[x_e + jj*params.nx]; /* west */
+        const float cells4 = cells_speeds_4[ii + y_n*params.nx]; /* south */
+        const float cells5 = cells_speeds_5[x_w + y_s*params.nx]; /* north-east */
+        const float cells6 = cells_speeds_6[x_e + y_s*params.nx]; /* north-west */
+        const float cells7 = cells_speeds_7[x_e + y_n*params.nx]; /* south-west */
+        const float cells8 = cells_speeds_8[x_w + y_n*params.nx]; /* south-east */
 
 
         /******************* propagate & collision *********************/
@@ -344,15 +382,15 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
           /* called after propagate, so taking values from scratch space
           ** mirroring, and writing into main grid */
 
-          tmp_cells->speeds_0[ii + jj*params.nx] = cells0;
-          tmp_cells->speeds_1[ii + jj*params.nx] = cells3;
-          tmp_cells->speeds_2[ii + jj*params.nx] = cells4;
-          tmp_cells->speeds_3[ii + jj*params.nx] = cells1;
-          tmp_cells->speeds_4[ii + jj*params.nx] = cells2;
-          tmp_cells->speeds_5[ii + jj*params.nx] = cells7;
-          tmp_cells->speeds_6[ii + jj*params.nx] = cells8;
-          tmp_cells->speeds_7[ii + jj*params.nx] = cells5;
-          tmp_cells->speeds_8[ii + jj*params.nx] = cells6;
+          tmp_cells_speeds_0[ii + jj*params.nx] = cells0;
+          tmp_cells_speeds_1[ii + jj*params.nx] = cells3;
+          tmp_cells_speeds_2[ii + jj*params.nx] = cells4;
+          tmp_cells_speeds_3[ii + jj*params.nx] = cells1;
+          tmp_cells_speeds_4[ii + jj*params.nx] = cells2;
+          tmp_cells_speeds_5[ii + jj*params.nx] = cells7;
+          tmp_cells_speeds_6[ii + jj*params.nx] = cells8;
+          tmp_cells_speeds_7[ii + jj*params.nx] = cells5;
+          tmp_cells_speeds_8[ii + jj*params.nx] = cells6;
 
         }
         /* don't consider occupied cells */
@@ -435,23 +473,23 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
 
           /* relaxation step */
 
-          tmp_cells->speeds_0[ii + jj*params.nx] = cells0 *(1.f-params.omega) 
+          tmp_cells_speeds_0[ii + jj*params.nx] = cells0 *(1.f-params.omega) 
                                                   + params.omega*d_equ_0;
-          tmp_cells->speeds_1[ii + jj*params.nx] = cells1 *(1.f-params.omega) 
+          tmp_cells_speeds_1[ii + jj*params.nx] = cells1 *(1.f-params.omega) 
                                                   + params.omega*d_equ_1;
-          tmp_cells->speeds_2[ii + jj*params.nx] = cells2 *(1.f-params.omega) 
+          tmp_cells_speeds_2[ii + jj*params.nx] = cells2 *(1.f-params.omega) 
                                                   + params.omega*d_equ_2;
-          tmp_cells->speeds_3[ii + jj*params.nx] = cells3 *(1.f-params.omega) 
+          tmp_cells_speeds_3[ii + jj*params.nx] = cells3 *(1.f-params.omega) 
                                                   + params.omega*d_equ_3;
-          tmp_cells->speeds_4[ii + jj*params.nx] = cells4 *(1.f-params.omega) 
+          tmp_cells_speeds_4[ii + jj*params.nx] = cells4 *(1.f-params.omega) 
                                                   + params.omega*d_equ_4;
-          tmp_cells->speeds_5[ii + jj*params.nx] = cells5 *(1.f-params.omega) 
+          tmp_cells_speeds_5[ii + jj*params.nx] = cells5 *(1.f-params.omega) 
                                                   + params.omega*d_equ_5;
-          tmp_cells->speeds_6[ii + jj*params.nx] = cells6 *(1.f-params.omega) 
+          tmp_cells_speeds_6[ii + jj*params.nx] = cells6 *(1.f-params.omega) 
                                                   + params.omega*d_equ_6;
-          tmp_cells->speeds_7[ii + jj*params.nx] = cells7 *(1.f-params.omega) 
+          tmp_cells_speeds_7[ii + jj*params.nx] = cells7 *(1.f-params.omega) 
                                                   + params.omega*d_equ_7;
-          tmp_cells->speeds_8[ii + jj*params.nx] = cells8 *(1.f-params.omega) 
+          tmp_cells_speeds_8[ii + jj*params.nx] = cells8 *(1.f-params.omega) 
                                                   + params.omega*d_equ_8;
 
           
@@ -459,11 +497,11 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
           /* accumulate the norm of x- and y- velocity components */
           tot_u += sqrtf((u_x * u_x) + (u_y * u_y));
           /* increase counter of inspected cells */
-          ++tot_cells;
+          ++tot_cells;  //todo:this can be defined as a constant outside the loop
         }
       }
     }
-  // }
+  }
 
   return tot_u / (float)tot_cells;
 }
@@ -485,11 +523,11 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 
   __assume_aligned(obstacles, 64);
   
-  __assume(params.nx%2==0);
-  __assume(params.ny%2==0);
+  __assume(params.nx%128==0);
+  __assume(params.ny%128==0);
 
   /* loop over all non-blocked cells */
-    // #pragma omp parallel for simd collapse(2) reduction(+:tot_cells,tot_u)
+    // #pragma omp parallel for reduction(+:tot_cells,tot_u)
     for (int jj = 0; jj < params.ny; jj++)
     { 
       #pragma omp simd
@@ -537,7 +575,7 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 }
 
 int initialise(const char* paramfile, const char* obstaclefile,
-               t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
+               t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr,
                int** obstacles_ptr, float** av_vels_ptr)
 {
   char   message[1024];  /* message buffer */
@@ -607,34 +645,34 @@ int initialise(const char* paramfile, const char* obstaclefile,
   */
 
   /* main grid */
-  *cells_ptr = (t_speed*)_mm_malloc(sizeof(t_speed) * (params->ny * params->nx),64);
+  // *cells_ptr = (t_speed*)_mm_malloc(sizeof(t_speed),64);
   //After changing to SOA we to change how we initialise cells too (need to allocate memory for each of the speed_0, speed_1...)
-  (*cells_ptr)->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*cells_ptr)->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  cells_ptr->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
 
 
-  if (*cells_ptr == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  if (cells_ptr == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
   /* 'helper' grid, used as scratch space */
-  *tmp_cells_ptr = (t_speed*)_mm_malloc(sizeof(t_speed) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-  (*tmp_cells_ptr)->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  // *tmp_cells_ptr = (t_speed*)_mm_malloc(sizeof(t_speed),64);
+  tmp_cells_ptr->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
+  tmp_cells_ptr->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
 
-  if (*tmp_cells_ptr == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  if (tmp_cells_ptr == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
 
   /* the map of obstacles */
   *obstacles_ptr = _mm_malloc(sizeof(int) * (params->ny * params->nx),64);
@@ -646,43 +684,44 @@ int initialise(const char* paramfile, const char* obstaclefile,
   const float w1 = params->density      / 9.f;
   const float w2 = params->density      / 36.f;
 
-  __assume_aligned((*cells_ptr)->speeds_0, 64);
-  __assume_aligned((*cells_ptr)->speeds_1, 64);
-  __assume_aligned((*cells_ptr)->speeds_2, 64);
-  __assume_aligned((*cells_ptr)->speeds_3, 64);
-  __assume_aligned((*cells_ptr)->speeds_4, 64);
-  __assume_aligned((*cells_ptr)->speeds_5, 64);
-  __assume_aligned((*cells_ptr)->speeds_6, 64);
-  __assume_aligned((*cells_ptr)->speeds_7, 64);
-  __assume_aligned((*cells_ptr)->speeds_8, 64);
+  __assume_aligned(cells_ptr, 64); 
+  __assume_aligned(cells_ptr->speeds_0, 64);
+  __assume_aligned(cells_ptr->speeds_1, 64);
+  __assume_aligned(cells_ptr->speeds_2, 64);
+  __assume_aligned(cells_ptr->speeds_3, 64);
+  __assume_aligned(cells_ptr->speeds_4, 64);
+  __assume_aligned(cells_ptr->speeds_5, 64);
+  __assume_aligned(cells_ptr->speeds_6, 64);
+  __assume_aligned(cells_ptr->speeds_7, 64);
+  __assume_aligned(cells_ptr->speeds_8, 64);
 
-  __assume_aligned(*obstacles_ptr, 64);
+  // __assume_aligned(*obstacles_ptr, 64);
 
-  __assume((*params).nx%2==0);
-  __assume((*params).ny%2==0);
+  // __assume((*params).nx%128==0);
+  // __assume((*params).ny%128==0);
   /*alternatively*/
   // __assume(params->nx%2==0);
   // __assume(params->ny%2==0);
 
   // omp_set_num_threads(28);
-  // #pragma omp parallel for collapse(2) 
+  #pragma omp parallel for //collapse(2) 
   for (int jj = 0; jj < params->ny; jj++)
   { 
     #pragma omp simd
     for (int ii = 0; ii < params->nx; ii++)
     {
       /* centre */
-      (*cells_ptr)->speeds_0[ii + jj*params->nx] = w0;
+      cells_ptr->speeds_0[ii + jj*params->nx] = w0;
       /* axis directions */
-      (*cells_ptr)->speeds_1[ii + jj*params->nx] = w1;
-      (*cells_ptr)->speeds_2[ii + jj*params->nx] = w1;
-      (*cells_ptr)->speeds_3[ii + jj*params->nx] = w1;
-      (*cells_ptr)->speeds_4[ii + jj*params->nx] = w1;
+      cells_ptr->speeds_1[ii + jj*params->nx] = w1;
+      cells_ptr->speeds_2[ii + jj*params->nx] = w1;
+      cells_ptr->speeds_3[ii + jj*params->nx] = w1;
+      cells_ptr->speeds_4[ii + jj*params->nx] = w1;
       /* diagonals */
-      (*cells_ptr)->speeds_5[ii + jj*params->nx] = w2;
-      (*cells_ptr)->speeds_6[ii + jj*params->nx] = w2;
-      (*cells_ptr)->speeds_7[ii + jj*params->nx] = w2;
-      (*cells_ptr)->speeds_8[ii + jj*params->nx] = w2;
+      cells_ptr->speeds_5[ii + jj*params->nx] = w2;
+      cells_ptr->speeds_6[ii + jj*params->nx] = w2;
+      cells_ptr->speeds_7[ii + jj*params->nx] = w2;
+      cells_ptr->speeds_8[ii + jj*params->nx] = w2;
 
 
   /* first set all cells in obstacle array to zero */
@@ -727,17 +766,31 @@ int initialise(const char* paramfile, const char* obstaclefile,
   return EXIT_SUCCESS;
 }
 
-int finalise(const t_param* params, t_speed** restrict cells_ptr, t_speed** restrict tmp_cells_ptr,
+int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr,
              int** obstacles_ptr, float** av_vels_ptr)
 {
   /*
   ** free up allocated memory
   */
-  _mm_free(*cells_ptr);
-  *cells_ptr = NULL;
+  _mm_free(cells_ptr->speeds_0);
+  _mm_free(cells_ptr->speeds_1);
+  _mm_free(cells_ptr->speeds_2);
+  _mm_free(cells_ptr->speeds_3);
+  _mm_free(cells_ptr->speeds_4);
+  _mm_free(cells_ptr->speeds_5);
+  _mm_free(cells_ptr->speeds_6);
+  _mm_free(cells_ptr->speeds_7);
+  _mm_free(cells_ptr->speeds_8);
 
-  _mm_free(*tmp_cells_ptr);
-  *tmp_cells_ptr = NULL;
+  _mm_free(tmp_cells_ptr->speeds_0);
+  _mm_free(tmp_cells_ptr->speeds_1);
+  _mm_free(tmp_cells_ptr->speeds_2);
+  _mm_free(tmp_cells_ptr->speeds_3);
+  _mm_free(tmp_cells_ptr->speeds_4);
+  _mm_free(tmp_cells_ptr->speeds_5);
+  _mm_free(tmp_cells_ptr->speeds_6);
+  _mm_free(tmp_cells_ptr->speeds_7);
+  _mm_free(tmp_cells_ptr->speeds_8);
 
   _mm_free(*obstacles_ptr);
   *obstacles_ptr = NULL;
@@ -770,10 +823,10 @@ float total_density(const t_param params, t_speed* cells)
   __assume_aligned(cells->speeds_7, 64);
   __assume_aligned(cells->speeds_8, 64);
 
-  __assume(params.nx%2==0);
-  __assume(params.ny%2==0);
+  __assume(params.nx%128==0);
+  __assume(params.ny%128==0);
 
-    // #pragma omp parallel for collapse(2)
+    #pragma omp parallel for //collapse(2)
     for (int jj = 0; jj < params.ny; jj++)
     { 
       #pragma omp simd
@@ -810,27 +863,10 @@ int write_values(const t_param params, t_speed* cells, int* obstacles, float* av
   {
     die("could not open file output file", __LINE__, __FILE__);
   }
+  
 
-  __assume_aligned(cells->speeds_0, 64);
-  __assume_aligned(cells->speeds_1, 64);
-  __assume_aligned(cells->speeds_2, 64);
-  __assume_aligned(cells->speeds_3, 64);
-  __assume_aligned(cells->speeds_4, 64);
-  __assume_aligned(cells->speeds_5, 64);
-  __assume_aligned(cells->speeds_6, 64);
-  __assume_aligned(cells->speeds_7, 64);
-  __assume_aligned(cells->speeds_8, 64);
-
-  __assume_aligned(obstacles, 64);
-  __assume_aligned(av_vels, 64);
-
-  __assume(params.nx%2==0);
-  __assume(params.ny%2==0);
-
-  // #pragma omp parallel for collapse(2) //private(u_x,u_y,u,pressure) //this one doens't give the right result-to be fixed
   for (int jj = 0; jj < params.ny; jj++)
   { 
-    #pragma omp simd
     for (int ii = 0; ii < params.nx; ii++)
     {
       /* an occupied cell */
@@ -887,7 +923,6 @@ int write_values(const t_param params, t_speed* cells, int* obstacles, float* av
   {
     die("could not open file output file", __LINE__, __FILE__);
   }
-  // #pragma omp parallel for //schedule(static) //this one doesn't work yet-to be fixed
   #pragma omp simd
   for (int ii = 0; ii < params.maxIters; ii++)
   {
