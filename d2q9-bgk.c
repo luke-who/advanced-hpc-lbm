@@ -1,4 +1,8 @@
 /*
+================================================================
+**************** HPC cw by Luke Zhang (az16408) ****************
+================================================================
+
 ** Code to implement a d2q9-bgk lattice boltzmann scheme.
 ** 'd2' inidates a 2-dimensional grid, and
 ** 'q9' indicates 9 velocities per grid cell.
@@ -142,10 +146,10 @@ int main(int argc, char* argv[])
   char*    paramfile = NULL;    /* name of the input parameter file */
   char*    obstaclefile = NULL; /* name of a the input obstacle file */
   t_param  params;              /* struct to hold parameter values */
-  t_speed cells;         /* grid containing fluid densities */
-  t_speed tmp_cells;   /* scratch space */
+  t_speed  cells;               /* grid containing fluid densities */
+  t_speed  tmp_cells;           /* scratch space */
   int*     obstacles = NULL;    /* grid indicating which cells are blocked */
-  float* av_vels   = NULL;     /* a record of the av. velocity computed for each timestep */
+  float*   av_vels   = NULL;     /* a record of the av. velocity computed for each timestep */
   struct timeval timstr;                                                             /* structure to hold elapsed time */
   double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
 
@@ -227,19 +231,19 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
   /* modify the 2nd row of the grid */
   const int jj = params.ny - 2;
 
-  // __assume_aligned(cells->speeds_0, 64);
-  // __assume_aligned(cells->speeds_1, 64);
-  // __assume_aligned(cells->speeds_2, 64);
-  // __assume_aligned(cells->speeds_3, 64);
-  // __assume_aligned(cells->speeds_4, 64);
-  // __assume_aligned(cells->speeds_5, 64);
-  // __assume_aligned(cells->speeds_6, 64);
-  // __assume_aligned(cells->speeds_7, 64);
-  // __assume_aligned(cells->speeds_8, 64);
+  __assume_aligned(cells->speeds_0, 64);
+  __assume_aligned(cells->speeds_1, 64);
+  __assume_aligned(cells->speeds_2, 64);
+  __assume_aligned(cells->speeds_3, 64);
+  __assume_aligned(cells->speeds_4, 64);
+  __assume_aligned(cells->speeds_5, 64);
+  __assume_aligned(cells->speeds_6, 64);
+  __assume_aligned(cells->speeds_7, 64);
+  __assume_aligned(cells->speeds_8, 64);
 
-  // __assume_aligned(obstacles, 64);
+  __assume_aligned(obstacles, 64);
 
-  // __assume(params.nx%2==0);
+  __assume(params.nx%8==0);
 
   // #pragma omp parallel for simd//num_threads(28)
   #pragma omp simd
@@ -318,28 +322,20 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
 
   __assume_aligned(obstacles, 64);
 
-  // __assume(params.nx%2==0);
-  // __assume(params.nx%4==0);
-  // __assume(params.nx%8==0);
-  // __assume(params.nx%16==0);
-  // __assume(params.nx%32==0);
-  // __assume(params.nx%64==0);
-  // __assume(params.nx%128==0);
+  __assume(params.nx%2==0);
+  __assume(params.nx%4==0);
+  __assume(params.nx%8==0);
+  __assume(params.nx%16==0);
+  __assume(params.nx%32==0);
 
-  // __assume(params.ny%2==0);
-  // __assume(params.ny%4==0);
-  // __assume(params.ny%8==0);
-  // __assume(params.ny%16==0);
-  // __assume(params.ny%32==0);
-  // __assume(params.ny%64==0);
-  // __assume(params.ny%128==0);
+  __assume(params.ny%2==0);
+  __assume(params.ny%4==0);
+  __assume(params.ny%8==0);
+  __assume(params.ny%16==0);
+  __assume(params.ny%32==0);
 
-  // __assume(tot_cells%2==0);
-  // __assume(tot_cells%4==0);
-  // __assume(tot_cells%8==0);
-  // __assume(tot_cells%16==0);
   /* loop over _all_ cells */
-  #pragma omp parallel for reduction(+:tot_cells,tot_u) //schedule(static)
+  #pragma omp parallel for reduction(+:tot_u) //schedule(static)
   for (int jj = 0; jj < params.ny; jj++)
   { 
     #pragma omp simd
@@ -359,6 +355,7 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
       /*Fuse propagate,collision&rebound. Instead of reading from cells and writing to tmp_cells(propagate), then reading from tmp_cells and 
       writing to cells(rebound&collision), we can do this with one read from cells and one write to tmp_cells, followed by a pointer swap 
       between cells and tmp_cells afterwards*/
+
       const float cells0 = cells_speeds_0[ii + jj*params.nx]; /* central cell, no movement */
       const float cells1 = cells_speeds_1[x_w + jj*params.nx]; /* east */
       const float cells2 = cells_speeds_2[ii + y_s*params.nx]; /* north */
@@ -458,81 +455,74 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
 
       /* accumulate the norm of x- and y- velocity components */
       tot_u += (!obstacles[jj*params.nx + ii]) ? sqrtf((u_x * u_x) + (u_y * u_y)) : 0;
-      /* increase counter of inspected cells */
-      tot_cells += (!obstacles[jj*params.nx + ii] ? 1 : 0); //todo:this can be precalculated & defined as a constant outside the loop
 
     }
   }
 
-  return tot_u / (float)tot_cells;
+  return tot_u / (float)params.tot_cells;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 {
   int    tot_cells = 0;  /* no. of cells used in calculation */
   float tot_u = 0.f;          /* accumulated magnitudes of velocity for each cell */
-
-  __assume_aligned(cells->speeds_0, 64);
-  __assume_aligned(cells->speeds_1, 64);
-  __assume_aligned(cells->speeds_2, 64);
-  __assume_aligned(cells->speeds_3, 64);
-  __assume_aligned(cells->speeds_4, 64);
-  __assume_aligned(cells->speeds_5, 64);
-  __assume_aligned(cells->speeds_6, 64);
-  __assume_aligned(cells->speeds_7, 64);
-  __assume_aligned(cells->speeds_8, 64);
-
-  __assume_aligned(obstacles, 64);
   
-  __assume(params.nx%128==0);
-  __assume(params.ny%128==0);
+  __assume(params.nx%8==0);
+  __assume(params.ny%8==0);
 
   /* loop over all non-blocked cells */
-    // #pragma omp parallel for reduction(+:tot_cells,tot_u)
+    #pragma omp parallel for reduction(+:tot_u)
     for (int jj = 0; jj < params.ny; jj++)
     { 
+      __assume_aligned(cells->speeds_0, 64);
+      __assume_aligned(cells->speeds_1, 64);
+      __assume_aligned(cells->speeds_2, 64);
+      __assume_aligned(cells->speeds_3, 64);
+      __assume_aligned(cells->speeds_4, 64);
+      __assume_aligned(cells->speeds_5, 64);
+      __assume_aligned(cells->speeds_6, 64);
+      __assume_aligned(cells->speeds_7, 64);
+      __assume_aligned(cells->speeds_8, 64);
+
+      __assume_aligned(obstacles, 64);
+      
       #pragma omp simd
       for (int ii = 0; ii < params.nx; ii++)
       {
-        /* ignore occupied cells */
-        if (!obstacles[ii + jj*params.nx])
-        {
-          /* local density total */
-          const float local_density = cells->speeds_0[ii + jj*params.nx]
-                                    + cells->speeds_1[ii + jj*params.nx]
-                                    + cells->speeds_2[ii + jj*params.nx]
-                                    + cells->speeds_3[ii + jj*params.nx]
-                                    + cells->speeds_4[ii + jj*params.nx]
-                                    + cells->speeds_5[ii + jj*params.nx]
-                                    + cells->speeds_6[ii + jj*params.nx]
-                                    + cells->speeds_7[ii + jj*params.nx]
-                                    + cells->speeds_8[ii + jj*params.nx];
+        /* local density total */
+        const float local_density = cells->speeds_0[ii + jj*params.nx]
+                                  + cells->speeds_1[ii + jj*params.nx]
+                                  + cells->speeds_2[ii + jj*params.nx]
+                                  + cells->speeds_3[ii + jj*params.nx]
+                                  + cells->speeds_4[ii + jj*params.nx]
+                                  + cells->speeds_5[ii + jj*params.nx]
+                                  + cells->speeds_6[ii + jj*params.nx]
+                                  + cells->speeds_7[ii + jj*params.nx]
+                                  + cells->speeds_8[ii + jj*params.nx];
 
-          /* x-component of velocity */
-          const float u_x = (cells->speeds_1[ii + jj*params.nx]
-                           + cells->speeds_5[ii + jj*params.nx]
-                           + cells->speeds_8[ii + jj*params.nx]
-                          - (cells->speeds_3[ii + jj*params.nx]
-                           + cells->speeds_6[ii + jj*params.nx]
-                           + cells->speeds_7[ii + jj*params.nx]))
-                          / local_density;
-          /* compute y velocity component */
-          const float u_y = (cells->speeds_2[ii + jj*params.nx]
-                           + cells->speeds_5[ii + jj*params.nx]
-                           + cells->speeds_6[ii + jj*params.nx]
-                          - (cells->speeds_4[ii + jj*params.nx]
-                           + cells->speeds_7[ii + jj*params.nx]
-                           + cells->speeds_8[ii + jj*params.nx]))
-                          / local_density;
-          /* accumulate the norm of x- and y- velocity components */
-          tot_u += sqrtf((u_x * u_x) + (u_y * u_y));
-          /* increase counter of inspected cells */
-          ++tot_cells;
-        }
+        /* x-component of velocity */
+        const float u_x = (cells->speeds_1[ii + jj*params.nx]
+                          + cells->speeds_5[ii + jj*params.nx]
+                          + cells->speeds_8[ii + jj*params.nx]
+                        - (cells->speeds_3[ii + jj*params.nx]
+                          + cells->speeds_6[ii + jj*params.nx]
+                          + cells->speeds_7[ii + jj*params.nx]))
+                        / local_density;
+        /* compute y velocity component */
+        const float u_y = (cells->speeds_2[ii + jj*params.nx]
+                          + cells->speeds_5[ii + jj*params.nx]
+                          + cells->speeds_6[ii + jj*params.nx]
+                        - (cells->speeds_4[ii + jj*params.nx]
+                          + cells->speeds_7[ii + jj*params.nx]
+                          + cells->speeds_8[ii + jj*params.nx]))
+                        / local_density;
+        /* accumulate the norm of x- and y- velocity components */
+        tot_u += (!obstacles[jj*params.nx + ii]) ? sqrtf((u_x * u_x) + (u_y * u_y)) : 0;
+        
       }
     }
 
-  return tot_u / (float)tot_cells;
+  return tot_u / (float)params.tot_cells;
 }
 
 int initialise(const char* paramfile, const char* obstaclefile,
@@ -656,16 +646,15 @@ int initialise(const char* paramfile, const char* obstaclefile,
   __assume_aligned(cells_ptr->speeds_7, 64);
   __assume_aligned(cells_ptr->speeds_8, 64);
 
-  // __assume_aligned(*obstacles_ptr, 64);
+  __assume_aligned(*obstacles_ptr, 64);
 
   // __assume((*params).nx%128==0);
   // __assume((*params).ny%128==0);
   /*alternatively*/
-  // __assume(params->nx%2==0);
-  // __assume(params->ny%2==0);
+  __assume(params->nx%8==0);
+  __assume(params->ny%8==0);
 
-  // omp_set_num_threads(28);
-  #pragma omp parallel for //collapse(2) 
+  // #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++)
   { 
     #pragma omp simd
@@ -685,8 +674,10 @@ int initialise(const char* paramfile, const char* obstaclefile,
       cells_ptr->speeds_8[ii + jj*params->nx] = w2;
 
 
-  /* first set all cells in obstacle array to zero */
+      /* first set all cells in obstacle array to zero */
       (*obstacles_ptr)[ii + jj*params->nx] = 0;
+      /* calculate params->tot_cells in initialisation */
+      params->tot_cells += (!(*obstacles_ptr)[jj*params->nx + ii] ? 1 : 0); //todo:this can be precalculated & defined as a constant outside the loop
     }
   }
 
@@ -774,22 +765,23 @@ float total_density(const t_param params, t_speed* cells)
 {
   float total = 0.f;  /* accumulator */
 
-  __assume_aligned(cells->speeds_0, 64);
-  __assume_aligned(cells->speeds_1, 64);
-  __assume_aligned(cells->speeds_2, 64);
-  __assume_aligned(cells->speeds_3, 64);
-  __assume_aligned(cells->speeds_4, 64);
-  __assume_aligned(cells->speeds_5, 64);
-  __assume_aligned(cells->speeds_6, 64);
-  __assume_aligned(cells->speeds_7, 64);
-  __assume_aligned(cells->speeds_8, 64);
 
-  __assume(params.nx%128==0);
-  __assume(params.ny%128==0);
+  __assume(params.nx%16==0);
+  __assume(params.ny%16==0);
 
     #pragma omp parallel for //collapse(2)
     for (int jj = 0; jj < params.ny; jj++)
     { 
+      __assume_aligned(cells->speeds_0, 64);
+      __assume_aligned(cells->speeds_1, 64);
+      __assume_aligned(cells->speeds_2, 64);
+      __assume_aligned(cells->speeds_3, 64);
+      __assume_aligned(cells->speeds_4, 64);
+      __assume_aligned(cells->speeds_5, 64);
+      __assume_aligned(cells->speeds_6, 64);
+      __assume_aligned(cells->speeds_7, 64);
+      __assume_aligned(cells->speeds_8, 64);
+      
       #pragma omp simd
       for (int ii = 0; ii < params.nx; ii++)
       {
