@@ -30,3 +30,6 @@ echo `echo $SLURM_JOB_NODELIST | uniq`
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+
+
+# advisor-gui advi_results #this opens advisor gui
