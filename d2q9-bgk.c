@@ -109,6 +109,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
                t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr,
                int** obstacles_ptr, float** av_vels_ptr);
 
+int cal_tot_cells(t_param params, int* obstacles);
 /*
 ** The main calculation methods.
 ** timestep calls, in order, the functions:
@@ -169,6 +170,7 @@ int main(int argc, char* argv[])
   tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_tic=tot_tic;
   initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels);
+  params.tot_cells = cal_tot_cells(params, obstacles);
 
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
@@ -214,7 +216,23 @@ int main(int argc, char* argv[])
 
   return EXIT_SUCCESS;
 }
- 
+
+int cal_tot_cells(t_param params, int* obstacles){
+  params.tot_cells=0;
+  for (int jj = 0; jj < params.ny; jj++)
+  { 
+    #pragma omp simd
+    for (int ii = 0; ii < params.nx; ii++)
+    { 
+      /* calculate params.tot_cells after initialisation */
+      params.tot_cells += (!obstacles[jj*params.nx + ii] ? 1 : 0);
+    }
+  }
+  // printf("params.tot_cells:%d\n",params.tot_cells);
+
+  return params.tot_cells;
+}
+
 float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
 {
   accelerate_flow(params, cells, obstacles);
@@ -245,7 +263,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
 
   __assume(params.nx%8==0);
 
-  // #pragma omp parallel for simd//num_threads(28)
+  // #pragma omp parallel for simd //note this one run a bit slower
   #pragma omp simd
   for (int ii = 0; ii < params.nx; ii++)
   { 
@@ -266,7 +284,6 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
       cells->speeds_7[ii + jj*params.nx] -= w2;
     }
   }
-
   return EXIT_SUCCESS;
 }
 
@@ -648,13 +665,13 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
   __assume_aligned(*obstacles_ptr, 64);
 
-  // __assume((*params).nx%128==0);
-  // __assume((*params).ny%128==0);
+  // __assume((*params)->nx%128==0);
+  // __assume((*params)->ny%128==0);
   /*alternatively*/
   __assume(params->nx%8==0);
   __assume(params->ny%8==0);
 
-  // #pragma omp parallel for
+  #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++)
   { 
     #pragma omp simd
@@ -676,8 +693,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
       /* first set all cells in obstacle array to zero */
       (*obstacles_ptr)[ii + jj*params->nx] = 0;
-      /* calculate params->tot_cells in initialisation */
-      params->tot_cells += (!(*obstacles_ptr)[jj*params->nx + ii] ? 1 : 0); //todo:this can be precalculated & defined as a constant outside the loop
+
     }
   }
 
