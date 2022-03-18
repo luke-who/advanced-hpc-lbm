@@ -219,6 +219,9 @@ int main(int argc, char* argv[])
 
 int cal_tot_cells(t_param params, int* obstacles){
   params.tot_cells=0;
+
+  __assume(params.nx%8==0);
+  __assume(params.ny%8==0);
   for (int jj = 0; jj < params.ny; jj++)
   { 
     #pragma omp simd
@@ -309,7 +312,6 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
   float* restrict tmp_cells_speeds_7 = tmp_cells->speeds_7;
   float* restrict tmp_cells_speeds_8 = tmp_cells->speeds_8;
 
-  int tot_cells = 0;    /* no. of cells used in calculation */
   float tot_u = 0.f;          /* accumulated magnitudes of velocity for each cell */
 
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
@@ -481,7 +483,6 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 {
-  int    tot_cells = 0;  /* no. of cells used in calculation */
   float tot_u = 0.f;          /* accumulated magnitudes of velocity for each cell */
   
   __assume(params.nx%8==0);
@@ -652,7 +653,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   const float w1 = params->density      / 9.f;
   const float w2 = params->density      / 36.f;
 
-  __assume_aligned(cells_ptr, 64); 
+  // __assume_aligned(cells_ptr, 64); 
   __assume_aligned(cells_ptr->speeds_0, 64);
   __assume_aligned(cells_ptr->speeds_1, 64);
   __assume_aligned(cells_ptr->speeds_2, 64);
