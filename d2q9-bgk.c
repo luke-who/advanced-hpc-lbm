@@ -266,7 +266,6 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
 
   __assume(params.nx%8==0);
 
-  // #pragma omp parallel for simd //note this one run a bit slower
   #pragma omp simd
   for (int ii = 0; ii < params.nx; ii++)
   { 
