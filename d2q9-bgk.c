@@ -356,6 +356,7 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
   #pragma omp parallel for reduction(+:tot_u) //schedule(static)
   for (int jj = 0; jj < params.ny; jj++)
   { 
+    // printf("Thread ID: %d \t Number of threads:%d\n",omp_get_thread_num(),omp_get_num_threads());
     #pragma omp simd
     for (int ii = 0; ii < params.nx; ii++)
     { 
@@ -488,7 +489,7 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
   __assume(params.ny%8==0);
 
   /* loop over all non-blocked cells */
-    #pragma omp parallel for reduction(+:tot_u)
+    #pragma omp parallel for reduction(+:tot_u) //num_threads(28)
     for (int jj = 0; jj < params.ny; jj++)
     { 
       __assume_aligned(cells->speeds_0, 64);
@@ -784,7 +785,8 @@ float total_density(const t_param params, t_speed* cells)
 
   __assume(params.nx%16==0);
   __assume(params.ny%16==0);
-
+  
+    // omp_set_num_threads(28);
     #pragma omp parallel for //collapse(2)
     for (int jj = 0; jj < params.ny; jj++)
     { 

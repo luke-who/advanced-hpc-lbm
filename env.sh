@@ -1,9 +1,11 @@
 # Add any `module load` or `export` commands that your code needs to
 # compile and run to this file.
-# export OMP_NUM_THREADS=28
+export OMP_NUM_THREADS=14
 # set OMP_NUM_THREADS #This command displays the current setting of the OMP_NUM_THREADS environment variable
-export OMP_SCHEDULE=static
-export OMP_PROC_BIND=true #close #spread
+# export OMP_SCHEDULE=static #pragma omp parallel for uses static schedule by default, which evenly divides the total loop iterations between all threads
+# export OMP_PROC_BIND=true
+export OMP_PROC_BIND=close
+# export OMP_PROC_BIND=spread
 export OMP_PLACES=cores
 
 # module load languages/gcc/9.3.0
