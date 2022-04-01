@@ -16,7 +16,7 @@ Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Co
 ```
 
 ```math
-    = \frac{2.25(MiBytes) * 2 * 80000}{42.45s} =8.48GB/s
+    = \frac{2.36(MiBytes) * 2 * 80000}{42.45s} =8.89GB/s
 ```
 <!-- and line math $`a^2 + b^2 = c^2`$. -->
 
