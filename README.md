@@ -5,7 +5,7 @@ Base coursework for the Advanced High Performance Computing class.
 * Source code is in the `d2q9-bgk.c` file
 * Results checking scripts are in the `check/` directory
 
-The formula for calculating Bandwidth of the 256x256 is as follows:
+The formula for calculating Bandwidth of the 256x256 input is as follows:
 
 ```math
 Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Compute\ Time}
