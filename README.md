@@ -5,6 +5,14 @@ Base coursework for the Advanced High Performance Computing class.
 * Source code is in the `d2q9-bgk.c` file
 * Results checking scripts are in the `check/` directory
 
+Display math:
+
+```math
+e^{i\pi} + 1 = 0
+```
+
+and line math $`a^2 + b^2 = c^2`$.
+
 ## Compiling and running
 
 To compile type `make`. Editing the values for `CC` and `CFLAGS` in the Makefile can be used to enable different compiler options or use a different compiler. These can also be passed on the command line:
