@@ -8,11 +8,11 @@ Base coursework for the Advanced High Performance Computing class.
 The formula for calculating Bandwidth of the 256x256 is as follows:
 
 ```math
-Bandwidth = \frac{Size Of One Grid * (timestep(params.maxIters))}{Elapsed Compute Time}
+Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Compute\ Time}
 ```
 
 ```math
-    = \frac{256*256 * 9 (speeds) * 4 (bytes per float) * 2(cells+tmp_cells) * 80000(timestep)}{42.45s}
+    = \frac{256*256 * 9 (speeds) * 4 (bytes\_per\_float) * 2(cells+tmp\_cells) * 80000(timestep)}{42.45s}
 ```
 
 ```math
