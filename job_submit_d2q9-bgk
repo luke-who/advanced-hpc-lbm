@@ -20,7 +20,7 @@ echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
 source env.sh
-
+# export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 
 #! Run the executable
 # ./d2q9-bgk input_128x128.params obstacles_128x128.dat
