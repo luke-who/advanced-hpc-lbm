@@ -9,11 +9,15 @@ The formula for calculating Bandwidth of the 256x256 is as follows:
 
 ```math
 Bandwidth = \frac{Size Of One Grid * (timestep(params.maxIters))}{Elapsed Compute Time}
-
-
-e^{i\pi} + 1 = 0
 ```
 
+```math
+    = \frac{256x256 x 9 (speeds) x 4 (bytes per float) x 2(cells & tmp\_cells) x 80000(timestep)}{42.45s}
+```
+
+```math
+    \frac{2.25(MiBytes) * 2 * 80000}{42.45s} =8.48GB/s
+```
 and line math $`a^2 + b^2 = c^2`$.
 
 ## Compiling and running
