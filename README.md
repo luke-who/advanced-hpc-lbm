@@ -12,11 +12,11 @@ Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Co
 ```
 
 ```math
-    = \frac{256*256 * 9 (speeds) * 4 (bytes\_per\_float) * 2(cells+tmp\_cells) * 80000(timestep)}{42.45s}
+    = \frac{256*256 * 9 (speeds) * 4 (bytes\_per\_float) * 2(cells+tmp\_cells) * 2(read+write) 80000(timestep)}{35.7s}
 ```
 
 ```math
-    = \frac{2.36(MiBytes) * 2 * 80000}{42.45s} =8.89GB/s
+    = \frac{2.36(MiBytes) * 4 * 80000}{35.7s} = 21.25GB/s
 ```
 <!-- and line math $`a^2 + b^2 = c^2`$. -->
 
