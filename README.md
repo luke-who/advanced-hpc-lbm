@@ -18,7 +18,7 @@ Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Co
 ```math
     = \frac{2.36(MiBytes) * 4 * 80000}{35.7s} = 21.25GB/s
 ```
-<!-- and line math $`a^2 + b^2 = c^2`$. -->
+ The maximum achievable L2 memory bandwidth is 84.88 GB/s, from here we can calculate the fraction of STREAM bandwidth = $`\frac{21.25}{84.88} = 25%`$.
 
 ## Compiling and running
 
