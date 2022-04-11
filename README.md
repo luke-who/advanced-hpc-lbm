@@ -12,7 +12,7 @@ Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Co
 ```
 
 ```math
-    = \frac{256*256 * 9 (speeds) * 4 (bytes\_per\_float) * 2(cells+tmp\_cells) * 2(read+write) 80000(timestep)}{35.7s}
+    = \frac{256*256 * 9 (speeds) * 4 (bytes\_per\_float) * 2(cells+tmp\_cells) * 2(read+write) * 80000(timestep)}{35.7s}
 ```
 
 ```math
