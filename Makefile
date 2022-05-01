@@ -7,6 +7,7 @@ EXE=d2q9-bgk
 #*******Set compiler*******#
 # CC=gcc
 CC=icc
+CC=mpiicc
 
 REPORT = -qopt-report=5 -qopt-report-phase=vec
 # OPTMLEVEL = -O0
@@ -19,7 +20,8 @@ Profile_Generate = -pg
 Unroll_loops = -funroll-all-loops
 #*******Set compiler flags*******#
 # CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -g #-qopenmp #NOALIAS
-CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg -qopenmp $(REPORT) #$(Profile_Generate) 
+# CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg -qopenmp $(REPORT) #$(Profile_Generate) 
+CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg $(REPORT) #$(Profile_Generate) 
 
 Intel_advisor = -Wl,-u__poll -Wl,-udlclose -Wl,-udlopen
 
@@ -50,8 +52,11 @@ check:
 
 run:
 	sbatch job_submit_d2q9-bgk
-	# watch -n 1 squeue -u az16408
-	while true; do squeue -u az16408;date ; sleep 1; done
+	watch -n 1 squeue -u az16408
+	# while true; do squeue -u az16408;date ; sleep 1; done
+
+cancel:
+	scancel -u az16408
 cat:
 	cat d2q9-bgk.out
 clean:
