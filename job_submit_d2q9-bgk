@@ -1,14 +1,14 @@
 #!/bin/bash
 
 #SBATCH --job-name d2q9-bgk
-#SBATCH --nodes 1
-#SBATCH --ntasks-per-node 1
-#SBATCH --cpus-per-task 28
+#SBATCH --nodes 4
+#SBATCH --ntasks-per-node 28
+#SBATCH --cpus-per-task 1
 #SBATCH --time 00:15:00
 #SBATCH --partition veryshort
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
-##SBATCH --exclude=compute100
+#SBATCH --exclude=compute104,compute105,compute127,compute216,compute300
 #SBATCH --exclusive
 #SBATCH --output d2q9-bgk.out
 
@@ -19,14 +19,19 @@ echo Slurm job ID is $SLURM_JOB_ID
 echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
-source env.sh
+# source env.sh
 # export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 
 #! Run the executable
 # ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # ./d2q9-bgk input_128x256.params obstacles_128x256.dat
 # ./d2q9-bgk input_256x256.params obstacles_256x256.dat
-./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+# ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+
+# with mpi
+# mpirun -np 4 -genv I_MPI_PIN=1 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+# mpirun -np 4 -ppn 2 -bind-to -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+srun --mpi=pmi2 --ntasks=4 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_256x256.params obstacles_256x256.dat
