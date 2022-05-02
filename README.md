@@ -57,6 +57,9 @@ eg:
 
 ***Note any one of these methods will override another when used together, depending on the order of execution***
 
+## Using MPI
+
+
 ## Checking results
 
 An automated result checking function is provided that requires you to load a particular Python module (`module load languages/anaconda2/5.0.1`). Running `make check` will check the output file (average velocities and final state) against some reference results. By default, it should look something like this:
