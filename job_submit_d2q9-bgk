@@ -1,14 +1,13 @@
 #!/bin/bash
 
 #SBATCH --job-name d2q9-bgk
-#SBATCH --nodes 4
+#SBATCH --nodes 1
 #SBATCH --ntasks-per-node 28
-#SBATCH --cpus-per-task 1
 #SBATCH --time 00:15:00
 #SBATCH --partition veryshort
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
-#SBATCH --exclude=compute104,compute105,compute127,compute216,compute300
+#SBATCH --exclude=compute[100-105,127,216,300]
 #SBATCH --exclusive
 #SBATCH --output d2q9-bgk.out
 
@@ -32,6 +31,8 @@ echo `echo $SLURM_JOB_NODELIST | uniq`
 # mpirun -np 4 -genv I_MPI_PIN=1 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # mpirun -np 4 -ppn 2 -bind-to -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 srun --mpi=pmi2 --ntasks=4 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+
+# mpirun -np 4 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_256x256.params obstacles_256x256.dat

@@ -6,7 +6,7 @@ EXE=d2q9-bgk
 
 #*******Set compiler*******#
 # CC=gcc
-CC=icc
+# CC=icc
 CC=mpiicc
 
 REPORT = -qopt-report=5 -qopt-report-phase=vec
