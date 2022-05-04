@@ -155,7 +155,7 @@ float calc_reynolds(const t_param params, t_speed* collated_cells, int* obstacle
 int calc_ncols_from_rank(int rank, int size, int tot_colmns);
 
 /* calculate the starting column in collated cells for each rank */
-int calc_start_columns_from_rank(int rank, int local_ncols, t_param* params);
+int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_colmns);
 
 /* utility functions */
 void die(const char* message, const int line, const char* file);
@@ -660,8 +660,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   }
 
   /* determine the index of the starting column in obstacles/collated cells for this rank */
-  params->start_col = ( (params->nx % params->size == 0) || (params->local_ncols == (params->nx/params->size) + 1) ) ? 
-                       (params->rank * params->local_ncols) : (params->rank * params->local_ncols + params->nx%params->size);
+  params->start_col = calc_start_columns_from_rank(params->rank, params->local_ncols, params->size, params->nx);
+
   /*
   ** Allocate memory.
   **
@@ -1073,7 +1073,7 @@ int calc_ncols_from_rank(int rank, int size, int tot_colmns)
   return ncols;
 }
 
-int calc_start_columns_from_rank(int rank, int local_ncols, t_param* params){
+int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_colmns){
   /* determine the index of the starting column in obstacles/collated cells for this rank */
   // int start_col;
   // if (params.nx % params.size == 0){
@@ -1085,8 +1085,8 @@ int calc_start_columns_from_rank(int rank, int local_ncols, t_param* params){
   //     start_col = params.rank * params.local_ncols + params.nx%params.size;
   //   }
   // }
-  int start_col = ( (params->nx % params->size == 0) || (local_ncols == (params->nx/params->size) + 1) ) ? 
-                       (rank * local_ncols) : (rank * local_ncols + params->nx%params->size);
+  int start_col = ( (tot_colmns % size == 0) || (local_ncols == (tot_colmns/size) + 1) ) ? 
+                       (rank * local_ncols) : (rank * local_ncols + tot_colmns%size);
   return start_col;           
 }
 
@@ -1194,7 +1194,7 @@ int collate_cells(t_param params, t_speed* restrict cells, t_speed* restrict col
     for (int source=1; source<params.size; source++) {
       /* recieving cells values from all other ranks other than MASTER.. */
       int local_ncols = calc_ncols_from_rank(source, params.size, params.nx);
-      int start_col = calc_start_columns_from_rank(source, local_ncols, &params);
+      int start_col = calc_start_columns_from_rank(source, local_ncols, params.size, params.nx);
 
       MPI_Recv(recv_blockbuf, (params.local_nrows * local_ncols * NSPEEDS), MPI_FLOAT, source, params.tag, MPI_COMM_WORLD, &params.status);
       for (int jj = 0; jj < params.local_nrows; jj++){
