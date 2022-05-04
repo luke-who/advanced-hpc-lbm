@@ -120,7 +120,7 @@ typedef struct
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
                t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr, t_speed* restrict collated_cells,
-               int** obstacles_ptr, float** av_vels_ptr, t_speed* restrict sendbuf, t_speed* restrict recvbuf,
+               int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, float* recvbuf,
                t_speed* restrict send_blockbuf, t_speed* restrict recv_blockbuf);
 
 int cal_tot_cells(t_param* params, int* obstacles);
@@ -129,7 +129,7 @@ int cal_tot_cells(t_param* params, int* obstacles);
 ** timestep calls, in order, the functions:
 ** accelerate_flow(), propagate(), rebound() & collision()
 */
-int halo_exchange(t_param params, t_speed* restrict cells, t_speed* restrict sendbuf, t_speed* restrict recvbuf);
+int halo_exchange(t_param params, t_speed* restrict cells, float* sendbuf, float* recvbuf);
 float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
 float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
@@ -138,8 +138,8 @@ int write_values(const t_param params, t_speed* collated_cells, int* obstacles, 
 
 /* finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr,
-             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, t_speed* restrict sendbuf, 
-             t_speed* restrict recvbuf, t_speed* restrict send_blockbuf, t_speed* restrict recv_blockbuf);
+             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, 
+             float* recvbuf, t_speed* restrict send_blockbuf, t_speed* restrict recv_blockbuf);
 
 /* Sum all the densities in the grid.
 ** The total should remain constant from one timestep to the next. */
@@ -179,8 +179,8 @@ int main(int argc, char* argv[])
   struct timeval timstr;                                                             /* structure to hold elapsed time */
   double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
 
-  t_speed sendbuf;       /* buffer to hold halo values to send */
-  t_speed recvbuf;       /* buffer to hold received halo values */
+  float* sendbuf = NULL;       /* buffer to hold halo values to send */
+  float* recvbuf = NULL;       /* buffer to hold received halo values */
 
   t_speed send_blockbuf;      /* buffer to send block values for collating */
   t_speed recv_blockbuf;      /* buffer to receive block values for collating */
@@ -208,7 +208,7 @@ int main(int argc, char* argv[])
   gettimeofday(&timstr, NULL);
   tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_tic=tot_tic;
-  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, &sendbuf, &recvbuf, &send_blockbuf, &recv_blockbuf);
+  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, sendbuf, recvbuf, &send_blockbuf, &recv_blockbuf);
   
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
@@ -217,7 +217,7 @@ int main(int argc, char* argv[])
 
   for (int tt = 0; tt < params.maxIters; tt++)
   { 
-    halo_exchange(params, &cells, &sendbuf, &recvbuf);
+    halo_exchange(params, &cells, sendbuf, recvbuf);
     float tot_u = timestep(params, &cells, &tmp_cells, obstacles);
     float tot_u_MASTER = 0.f;
     MPI_Reduce(&tot_u, &tot_u_MASTER, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
@@ -260,7 +260,7 @@ int main(int argc, char* argv[])
     printf("Elapsed Total time:\t\t\t%.6lf (s)\n",   tot_toc  - tot_tic);
     write_values(params, &collated_cells, obstacles, av_vels);
   }
-  finalise(&params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, &sendbuf, &recvbuf, &send_blockbuf, &recv_blockbuf);
+  finalise(&params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, sendbuf, recvbuf, &send_blockbuf, &recv_blockbuf);
 
   MPI_Finalize();
   return EXIT_SUCCESS;
@@ -592,7 +592,7 @@ float av_velocity(const t_param params, t_speed* collated_cells, int* obstacles)
 
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
                t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr, t_speed* restrict collated_cells,
-               int** obstacles_ptr, float** av_vels_ptr, t_speed* restrict sendbuf, t_speed* restrict recvbuf,
+               int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, float* recvbuf,
                t_speed* restrict send_blockbuf, t_speed* restrict recv_blockbuf)
 {
   char   message[1024];  /* message buffer */
@@ -660,17 +660,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
 
-  /* determine the index of the starting column in obstacles for this rank */
-  // int start_col;
-  // if (params.nx % params.size == 0){
-  //   start_col = params.rank * params.local_ncols;
-  // }else {
-  //   if (params.local_ncols == (int)(params.nx/params.size) + 1){
-  //     start_col = params.rank * params.local_ncols;
-  //   }else {
-  //     start_col = params.rank * params.local_ncols + params.nx%params.size;
-  //   }
-  // }
+  /* determine the index of the starting column in obstacles/collated cells for this rank */
   params->start_col = ( (params->nx % params->size == 0) || (params->local_ncols == (params->nx/params->size) + 1) ) ? 
                        (params->rank * params->local_ncols) : (params->rank * params->local_ncols + params->nx%params->size);
   /*
@@ -722,46 +712,33 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   
   /* allocate space to store a record of the send and receive columns for this rank's halo regions
   ** at each timestep */
-  sendbuf->speeds_0 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_1 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_2 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_3 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_4 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_5 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_6 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_7 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  sendbuf->speeds_8 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
+  sendbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * NSPEEDS),64);
+  recvbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * NSPEEDS),64);
 
-  recvbuf->speeds_0 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_1 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_2 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_3 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_4 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_5 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_6 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_7 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
-  recvbuf->speeds_8 = (float*)_mm_malloc(sizeof(float) * params->ny,64);
 
   /* allocate space to store a record of the send and receive blocks(rows&columns) of this rank, for collating cells at the end */
-  send_blockbuf->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  send_blockbuf->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+  if (params->rank != MASTER){
+    send_blockbuf->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    send_blockbuf->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+  }else{
+    recv_blockbuf->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+    recv_blockbuf->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
+  }
 
-  recv_blockbuf->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
-  recv_blockbuf->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols),64);
 
   /* the map of obstacles */
   *obstacles_ptr = _mm_malloc(sizeof(int) * (params->ny * params->nx),64);
@@ -901,13 +878,13 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   ** at each timestep
   */
   *av_vels_ptr = (float*)_mm_malloc(sizeof(float) * params->maxIters,64);
-
+  printf("initialisation success on rank %d",params->rank);
   return EXIT_SUCCESS;
 }
 
 int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr, 
-             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, t_speed* restrict sendbuf, 
-             t_speed* restrict recvbuf, t_speed* restrict send_blockbuf, t_speed* restrict recv_blockbuf)
+             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, 
+             float* recvbuf, t_speed* restrict send_blockbuf, t_speed* restrict recv_blockbuf)
 {
   /*
   ** free up allocated memory
@@ -950,25 +927,8 @@ int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restri
   _mm_free(*av_vels_ptr);
   *av_vels_ptr = NULL;
 
-  _mm_free(sendbuf->speeds_0);
-  _mm_free(sendbuf->speeds_1);
-  _mm_free(sendbuf->speeds_2);
-  _mm_free(sendbuf->speeds_3);
-  _mm_free(sendbuf->speeds_4);
-  _mm_free(sendbuf->speeds_5);
-  _mm_free(sendbuf->speeds_6);
-  _mm_free(sendbuf->speeds_7);
-  _mm_free(sendbuf->speeds_8);
-
-  _mm_free(recvbuf->speeds_0);
-  _mm_free(recvbuf->speeds_1);
-  _mm_free(recvbuf->speeds_2);
-  _mm_free(recvbuf->speeds_3);
-  _mm_free(recvbuf->speeds_4);
-  _mm_free(recvbuf->speeds_5);
-  _mm_free(recvbuf->speeds_6);
-  _mm_free(recvbuf->speeds_7);
-  _mm_free(recvbuf->speeds_8);
+  _mm_free(sendbuf);
+  _mm_free(recvbuf);
 
   _mm_free(send_blockbuf->speeds_0);
   _mm_free(send_blockbuf->speeds_1);
@@ -1148,101 +1108,83 @@ int calc_ncols_from_rank(int rank, int size, int tot_colmns)
 }
 
 int calc_start_columns_from_rank(int rank, int local_ncols, t_param* params){
+  /* determine the index of the starting column in obstacles/collated cells for this rank */
+  // int start_col;
+  // if (params.nx % params.size == 0){
+  //   start_col = params.rank * params.local_ncols;
+  // }else {
+  //   if (params.local_ncols == (int)(params.nx/params.size) + 1){
+  //     start_col = params.rank * params.local_ncols;
+  //   }else {
+  //     start_col = params.rank * params.local_ncols + params.nx%params.size;
+  //   }
+  // }
   int start_col = ( (params->nx % params->size == 0) || (local_ncols == (params->nx/params->size) + 1) ) ? 
                        (rank * local_ncols) : (rank * local_ncols + params->nx%params->size);
   return start_col;           
 }
 
 int halo_exchange(t_param params, t_speed* restrict cells,
-                  t_speed* restrict sendbuf, t_speed* restrict recvbuf) {
+                  float* sendbuf, float* recvbuf) {
   
   //##### packing from cells to sendbuf: pack the 2nd column of the cells to send buffer #####//
   for (int jj = 0; jj < params.local_nrows; jj++){
-    sendbuf->speeds_0[jj] = cells->speeds_0[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_1[jj] = cells->speeds_1[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_2[jj] = cells->speeds_2[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_3[jj] = cells->speeds_3[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_4[jj] = cells->speeds_4[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_5[jj] = cells->speeds_5[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_6[jj] = cells->speeds_6[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_7[jj] = cells->speeds_7[jj*(params.local_ncols+2) + 1];
-    sendbuf->speeds_8[jj] = cells->speeds_8[jj*(params.local_ncols+2) + 1];
+    sendbuf[0 + (jj*NSPEEDS)] = cells->speeds_0[jj*(params.local_ncols+2) + 1];
+    sendbuf[1 + (jj*NSPEEDS)] = cells->speeds_1[jj*(params.local_ncols+2) + 1];
+    sendbuf[2 + (jj*NSPEEDS)] = cells->speeds_2[jj*(params.local_ncols+2) + 1];
+    sendbuf[3 + (jj*NSPEEDS)] = cells->speeds_3[jj*(params.local_ncols+2) + 1];
+    sendbuf[4 + (jj*NSPEEDS)] = cells->speeds_4[jj*(params.local_ncols+2) + 1];
+    sendbuf[5 + (jj*NSPEEDS)] = cells->speeds_5[jj*(params.local_ncols+2) + 1];
+    sendbuf[6 + (jj*NSPEEDS)] = cells->speeds_6[jj*(params.local_ncols+2) + 1];
+    sendbuf[7 + (jj*NSPEEDS)] = cells->speeds_7[jj*(params.local_ncols+2) + 1];
+    sendbuf[8 + (jj*NSPEEDS)] = cells->speeds_8[jj*(params.local_ncols+2) + 1];
   }
   /* send to the left, receive from right <- [0] <- [1] <- [2] <- [3] <- ... <- [n] <- */
-  MPI_Sendrecv(sendbuf->speeds_0, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_0, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_1, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_1, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_2, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_2, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_3, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_3, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_4, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_4, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_5, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_5, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_6, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_6, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_7, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_7, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_8, params.ny, MPI_FLOAT, params.left, params.tag,
-               recvbuf->speeds_8, params.ny, MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
+  MPI_Sendrecv(&sendbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.left, params.tag,
+               &recvbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
   //##### unpacking from recvbuf to cells: unpack from recvbuf to the right most(halo) column of cells #####//
   for (int jj = 0; jj < params.local_nrows; jj++){
-    cells->speeds_0[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_0[jj];
-    cells->speeds_1[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_1[jj];
-    cells->speeds_2[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_2[jj];
-    cells->speeds_3[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_3[jj];
-    cells->speeds_4[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_4[jj];
-    cells->speeds_5[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_5[jj];
-    cells->speeds_6[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_6[jj];
-    cells->speeds_7[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_7[jj];
-    cells->speeds_8[(jj+1)*(params.local_ncols+2) - 1] = recvbuf->speeds_8[jj];  
+    cells->speeds_0[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[0 + (jj*NSPEEDS)];
+    cells->speeds_1[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[1 + (jj*NSPEEDS)];
+    cells->speeds_2[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[2 + (jj*NSPEEDS)];
+    cells->speeds_3[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[3 + (jj*NSPEEDS)];
+    cells->speeds_4[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[4 + (jj*NSPEEDS)];
+    cells->speeds_5[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[5 + (jj*NSPEEDS)];
+    cells->speeds_6[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[6 + (jj*NSPEEDS)];
+    cells->speeds_7[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[7 + (jj*NSPEEDS)];
+    cells->speeds_8[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[8 + (jj*NSPEEDS)];  
   }
 
-  //----------------------------------------------------------------//
+  //------------------------------------------------------------------------------------------//
+
   //##### packing from cells to sendbuf: pack the params.local_ncols+1 column of the cells to send buffer #####//
   for (int jj = 0; jj < params.local_nrows; jj++){
-    sendbuf->speeds_0[jj] = cells->speeds_0[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_1[jj] = cells->speeds_1[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_2[jj] = cells->speeds_2[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_3[jj] = cells->speeds_3[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_4[jj] = cells->speeds_4[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_5[jj] = cells->speeds_5[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_6[jj] = cells->speeds_6[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_7[jj] = cells->speeds_7[jj*(params.local_ncols+2) + params.local_ncols];
-    sendbuf->speeds_8[jj] = cells->speeds_8[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[0 + (jj*NSPEEDS)] = cells->speeds_0[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[1 + (jj*NSPEEDS)] = cells->speeds_1[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[2 + (jj*NSPEEDS)] = cells->speeds_2[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[3 + (jj*NSPEEDS)] = cells->speeds_3[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[4 + (jj*NSPEEDS)] = cells->speeds_4[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[5 + (jj*NSPEEDS)] = cells->speeds_5[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[6 + (jj*NSPEEDS)] = cells->speeds_6[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[7 + (jj*NSPEEDS)] = cells->speeds_7[jj*(params.local_ncols+2) + params.local_ncols];
+    sendbuf[8 + (jj*NSPEEDS)] = cells->speeds_8[jj*(params.local_ncols+2) + params.local_ncols];
   }
+  
   /* send to the right, receive from left -> [0] -> [1] -> [2] -> [3] -> ... -> [n] -> */
-  MPI_Sendrecv(sendbuf->speeds_0, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_0, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_1, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_1, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_2, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_2, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_3, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_3, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_4, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_4, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_5, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_5, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_6, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_6, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_7, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_7, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
-  MPI_Sendrecv(sendbuf->speeds_8, params.ny, MPI_FLOAT, params.right, params.tag,
-               recvbuf->speeds_8, params.ny, MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status); 
+  MPI_Sendrecv(&sendbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.right, params.tag,
+               &recvbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
+
   //##### unpacking from recvbuf to cells: unpack from recvbuf to the left most(halo) column of cells #####//
   for (int jj = 0; jj < params.local_nrows; jj++){
-    cells->speeds_0[jj*(params.local_ncols+2)] = recvbuf->speeds_0[jj];
-    cells->speeds_1[jj*(params.local_ncols+2)] = recvbuf->speeds_1[jj];
-    cells->speeds_2[jj*(params.local_ncols+2)] = recvbuf->speeds_2[jj];
-    cells->speeds_3[jj*(params.local_ncols+2)] = recvbuf->speeds_3[jj];
-    cells->speeds_4[jj*(params.local_ncols+2)] = recvbuf->speeds_4[jj];
-    cells->speeds_5[jj*(params.local_ncols+2)] = recvbuf->speeds_5[jj];
-    cells->speeds_6[jj*(params.local_ncols+2)] = recvbuf->speeds_6[jj];
-    cells->speeds_7[jj*(params.local_ncols+2)] = recvbuf->speeds_7[jj];
-    cells->speeds_8[jj*(params.local_ncols+2)] = recvbuf->speeds_8[jj];  
+    cells->speeds_0[jj*(params.local_ncols+2)] = recvbuf[0 + (jj*NSPEEDS)];
+    cells->speeds_1[jj*(params.local_ncols+2)] = recvbuf[1 + (jj*NSPEEDS)];
+    cells->speeds_2[jj*(params.local_ncols+2)] = recvbuf[2 + (jj*NSPEEDS)];
+    cells->speeds_3[jj*(params.local_ncols+2)] = recvbuf[3 + (jj*NSPEEDS)];
+    cells->speeds_4[jj*(params.local_ncols+2)] = recvbuf[4 + (jj*NSPEEDS)];
+    cells->speeds_5[jj*(params.local_ncols+2)] = recvbuf[5 + (jj*NSPEEDS)];
+    cells->speeds_6[jj*(params.local_ncols+2)] = recvbuf[6 + (jj*NSPEEDS)];
+    cells->speeds_7[jj*(params.local_ncols+2)] = recvbuf[7 + (jj*NSPEEDS)];
+    cells->speeds_8[jj*(params.local_ncols+2)] = recvbuf[8 + (jj*NSPEEDS)];  
   } 
 
   return EXIT_SUCCESS;
