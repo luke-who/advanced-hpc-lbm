@@ -65,6 +65,7 @@
 #define NSPEEDS         9
 #define FINALSTATEFILE  "final_state.dat"
 #define AVVELSFILE      "av_vels.dat"
+// #define DEBUG
 #define MASTER 0 /* master rank */
 
 /* struct to hold the parameter values */
@@ -123,7 +124,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
                int** obstacles_ptr, float** av_vels_ptr, float** sendbuf, float** recvbuf,
                float** send_blockbuf, float** recv_blockbuf);
 
-int cal_tot_cells(t_param* params, int* obstacles);
+int cal_tot_cells(t_param params, int* obstacles);
 /*
 ** The main calculation methods.
 ** timestep calls, in order, the functions:
@@ -210,7 +211,9 @@ int main(int argc, char* argv[])
   tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_tic=tot_tic;
   initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, &sendbuf, &recvbuf, &send_blockbuf, &recv_blockbuf);
-  
+  /* calculate totoal number of cells that have obstacles==0, note only the MASTER rank needs this value to compute av_vel[tt] at each timestep */
+  params.tot_cells = cal_tot_cells(params, obstacles);
+
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
@@ -231,12 +234,20 @@ int main(int argc, char* argv[])
     tmp_cells = tmp_tmp_cells;
     
 #ifdef DEBUG
-    printf("==timestep: %d==\n", tt);
-    printf("av velocity: %.12E\n", av_vels[tt]);
-    printf("tot density: %.12E\n", total_density(params, &cells));
+    float total = total_density(params, &cells);
+    float total_MASTER = 0.f;
+    MPI_Reduce(&total, &total_MASTER, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
+    if (params.rank == MASTER){
+      printf("==timestep: %d==\n", tt);
+      printf("av velocity: %.12E\n", av_vels[tt]);
+      // printf("tot density: %.12E\n", total_density(params, &cells));
+      printf("tot density: %.12E\n", total_MASTER);
+    }
 #endif
   }
-  
+  // if (params.rank == MASTER){
+  //   printf("av_vels[params.maxIters-1]: %f\n",av_vels[params.maxIters-1]);
+  // }
   /* Compute time stops here, collate time starts*/
   gettimeofday(&timstr, NULL);
   comp_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
@@ -266,23 +277,23 @@ int main(int argc, char* argv[])
   return EXIT_SUCCESS;
 }
 
-int cal_tot_cells(t_param* params, int* obstacles){
-  params->tot_cells=0;
+int cal_tot_cells(t_param params, int* obstacles){
+  params.tot_cells=0;
 
-  __assume(params->nx%8==0);
-  __assume(params->ny%8==0);
-  for (int jj = 0; jj < params->ny; jj++)
+  __assume(params.nx%8==0);
+  __assume(params.ny%8==0);
+  for (int jj = 0; jj < params.ny; jj++)
   { 
     #pragma omp simd
-    for (int ii = 0; ii < params->nx; ii++)
+    for (int ii = 0; ii < params.nx; ii++)
     { 
-      /* calculate params.->tot_cells after initialisation */
-      params->tot_cells += (!obstacles[jj*params->nx + ii] ? 1 : 0);
+      /* calculate params.tot_cells after initialisation */
+      params.tot_cells += (!obstacles[jj*params.nx + ii] ? 1 : 0);
     }
   }
-  // printf("params->tot_cells:%d\n",params->tot_cells);
+  // printf("params.tot_cells:%d\n",params.tot_cells); //this should be 15876 for 128x128 grid
 
-  return params->tot_cells;
+  return params.tot_cells;
 }
 
 float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
@@ -853,8 +864,6 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     collated_cells->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
     collated_cells->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
     collated_cells->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx),64);
-    /* calculate totoal number of cells that have obstacles==0, only the MASTER ranks needs this value to compute av_vel[tt] at each timestep */
-    params->tot_cells = cal_tot_cells(params, (*obstacles_ptr));
   }
 
   /*
@@ -862,7 +871,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   ** at each timestep
   */
   *av_vels_ptr = (float*)_mm_malloc(sizeof(float) * params->maxIters,64);
-  printf("params->tot_cells: %d, params->ny: %d, params->nx: %d\n",params->tot_cells,params->ny,params->nx);
+  // printf("params->tot_cells: %d, params->ny: %d, params->nx: %d\n",params->tot_cells,params->ny,params->nx);
   // printf("rank %d * sendbuf size: %d\n",params->rank,(params->ny * NSPEEDS));
   // printf("rank %d <-> rank %d <-> rank %d, size: %d, params->local_ncols: %d, params->start_col: %d\n",params->left,params->rank,params->right,params->size, params->local_ncols, params->start_col);
   return EXIT_SUCCESS;
@@ -1237,4 +1246,3 @@ void usage(const char* exe)
   fprintf(stderr, "Usage: %s <paramfile> <obstaclefile>\n", exe);
   exit(EXIT_FAILURE);
 }
-
