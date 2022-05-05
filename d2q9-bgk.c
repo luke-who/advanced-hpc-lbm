@@ -120,8 +120,8 @@ typedef struct
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
                t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr, t_speed* restrict collated_cells,
-               int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, float* recvbuf,
-               float* send_blockbuf, float* recv_blockbuf);
+               int** obstacles_ptr, float** av_vels_ptr, float** sendbuf, float** recvbuf,
+               float** send_blockbuf, float** recv_blockbuf);
 
 int cal_tot_cells(t_param* params, int* obstacles);
 /*
@@ -138,8 +138,8 @@ int write_values(const t_param params, t_speed* collated_cells, int* obstacles, 
 
 /* finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr,
-             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, 
-             float* recvbuf, float* send_blockbuf, float* recv_blockbuf);
+             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, float** sendbuf, 
+             float** recvbuf, float** send_blockbuf, float** recv_blockbuf);
 
 /* Sum all the densities in the grid.
 ** The total should remain constant from one timestep to the next. */
@@ -168,6 +168,8 @@ void usage(const char* exe);
 */
 int main(int argc, char* argv[])
 { 
+  MPI_Init(&argc, &argv);
+
   char*    paramfile = NULL;    /* name of the input parameter file */
   char*    obstaclefile = NULL; /* name of a the input obstacle file */
   t_param  params;              /* struct to hold parameter values */
@@ -189,7 +191,6 @@ int main(int argc, char* argv[])
   ** MPI_Init returns once it has started up processes
   ** Get size of cohort and rank for this process
   */
-  MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &params.size);
   MPI_Comm_rank(MPI_COMM_WORLD, &params.rank);
 
@@ -208,7 +209,7 @@ int main(int argc, char* argv[])
   gettimeofday(&timstr, NULL);
   tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_tic=tot_tic;
-  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, sendbuf, recvbuf, send_blockbuf, recv_blockbuf);
+  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, &sendbuf, &recvbuf, &send_blockbuf, &recv_blockbuf);
   
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
@@ -259,7 +260,7 @@ int main(int argc, char* argv[])
     printf("Elapsed Total time:\t\t\t%.6lf (s)\n",   tot_toc  - tot_tic);
     write_values(params, &collated_cells, obstacles, av_vels);
   }
-  finalise(&params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, sendbuf, recvbuf, send_blockbuf, recv_blockbuf);
+  finalise(&params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, &sendbuf, &recvbuf, &send_blockbuf, &recv_blockbuf);
 
   MPI_Finalize();
   return EXIT_SUCCESS;
@@ -591,8 +592,8 @@ float av_velocity(const t_param params, t_speed* collated_cells, int* obstacles)
 
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
                t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr, t_speed* restrict collated_cells,
-               int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, float* recvbuf,
-               float* send_blockbuf, float* recv_blockbuf)
+               int** obstacles_ptr, float** av_vels_ptr, float** sendbuf, float** recvbuf,
+               float** send_blockbuf, float** recv_blockbuf)
 {
   char   message[1024];  /* message buffer */
   FILE*   fp;            /* file pointer */
@@ -711,15 +712,15 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   
   /* allocate space to store a record of the send and receive columns for this rank's halo regions
   ** at each timestep */
-  sendbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * NSPEEDS),64);
-  recvbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * NSPEEDS),64);
+  *sendbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * NSPEEDS),64);
+  *recvbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * NSPEEDS),64);
 
 
   /* allocate space to store a record of the send and receive blocks(rows&columns) of this rank, for collating cells at the end */
   if (params->rank != MASTER){
-    send_blockbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols * NSPEEDS),64);
+    *send_blockbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols * NSPEEDS),64);
   }else{
-    recv_blockbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols * NSPEEDS),64);
+    *recv_blockbuf = (float*)_mm_malloc(sizeof(float) * (params->ny * params->local_ncols * NSPEEDS),64);
   }
 
 
@@ -861,13 +862,15 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   ** at each timestep
   */
   *av_vels_ptr = (float*)_mm_malloc(sizeof(float) * params->maxIters,64);
-  printf("initialisation success on rank %d",params->rank);
+  printf("params->tot_cells: %d, params->ny: %d, params->nx: %d\n",params->tot_cells,params->ny,params->nx);
+  // printf("rank %d * sendbuf size: %d\n",params->rank,(params->ny * NSPEEDS));
+  // printf("rank %d <-> rank %d <-> rank %d, size: %d, params->local_ncols: %d, params->start_col: %d\n",params->left,params->rank,params->right,params->size, params->local_ncols, params->start_col);
   return EXIT_SUCCESS;
 }
 
 int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restrict tmp_cells_ptr, 
-             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, float* sendbuf, 
-             float* recvbuf, float* send_blockbuf, float* recv_blockbuf)
+             t_speed* restrict collated_cells, int** obstacles_ptr, float** av_vels_ptr, float** sendbuf, 
+             float** recvbuf, float** send_blockbuf, float** recv_blockbuf)
 {
   /*
   ** free up allocated memory
@@ -910,11 +913,15 @@ int finalise(const t_param* params, t_speed* restrict cells_ptr, t_speed* restri
   _mm_free(*av_vels_ptr);
   *av_vels_ptr = NULL;
 
-  _mm_free(sendbuf);
-  _mm_free(recvbuf);
+  _mm_free(*sendbuf);
+  *sendbuf = NULL;
+  _mm_free(*recvbuf);
+  *recvbuf = NULL;
 
-  _mm_free(send_blockbuf);
-  _mm_free(recv_blockbuf);
+  _mm_free(*send_blockbuf);
+  *send_blockbuf = NULL;
+  _mm_free(*recv_blockbuf);
+  *recv_blockbuf = NULL;
 
   return EXIT_SUCCESS;
 }
@@ -1060,8 +1067,8 @@ int calc_ncols_from_rank(int rank, int size, int tot_colmns)
   int ncols;
   int remainder = 0;
 
-  ncols = (tot_colmns * sqrt(NSPEEDS)) / size;       /* integer division */
-  remainder = (int)(tot_colmns * sqrt(NSPEEDS)) % size;
+  ncols = tot_colmns / size;       /* integer division */
+  remainder = tot_colmns % size;
   if (remainder != 0) {  /* if there is a remainder */
     if (rank < remainder) {
       ncols+=1;           /* distribute the remainder 1 per rank */
@@ -1105,9 +1112,11 @@ int halo_exchange(t_param params, t_speed* restrict cells,
     sendbuf[7 + (jj*NSPEEDS)] = cells->speeds_7[jj*(params.local_ncols+2) + 1];
     sendbuf[8 + (jj*NSPEEDS)] = cells->speeds_8[jj*(params.local_ncols+2) + 1];
   }
+  // printf("sendbuf size: %d\n",(int)(sizeof(sendbuf)/sizeof(sendbuf[0])));
   /* send to the left, receive from right <- [0] <- [1] <- [2] <- [3] <- ... <- [n] <- */
-  MPI_Sendrecv(&sendbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.left, params.tag,
-               &recvbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
+  MPI_Sendrecv(sendbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.left, params.tag,
+               recvbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.right, params.tag, MPI_COMM_WORLD, &params.status);
+  // printf("recvbuf size: %d\n",(int)(sizeof(recvbuf)/sizeof(recvbuf[0])));
   //##### unpacking from recvbuf to cells: unpack from recvbuf to the right most(halo) column of cells #####//
   for (int jj = 0; jj < params.local_nrows; jj++){
     cells->speeds_0[(jj+1)*(params.local_ncols+2) - 1] = recvbuf[0 + (jj*NSPEEDS)];
@@ -1137,8 +1146,8 @@ int halo_exchange(t_param params, t_speed* restrict cells,
   }
   
   /* send to the right, receive from left -> [0] -> [1] -> [2] -> [3] -> ... -> [n] -> */
-  MPI_Sendrecv(&sendbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.right, params.tag,
-               &recvbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
+  MPI_Sendrecv(sendbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.right, params.tag,
+               recvbuf, (params.ny*NSPEEDS), MPI_FLOAT, params.left, params.tag, MPI_COMM_WORLD, &params.status);
 
   //##### unpacking from recvbuf to cells: unpack from recvbuf to the left most(halo) column of cells #####//
   for (int jj = 0; jj < params.local_nrows; jj++){
