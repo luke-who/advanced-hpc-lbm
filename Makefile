@@ -3,6 +3,7 @@
 # Makefile
 
 EXE=d2q9-bgk
+# EXE=d2q9
 
 #*******Set compiler*******#
 # CC=gcc

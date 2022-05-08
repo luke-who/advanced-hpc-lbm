@@ -161,7 +161,7 @@ int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_co
 /* utility functions */
 void die(const char* message, const int line, const char* file);
 void usage(const char* exe);
-
+void printrankspeed(t_param* params, float* speed, int rank, char* PrintType, int tt, float tot_u, int tot_cells, float av_vels);
 
 /*
 ** main program:
@@ -222,27 +222,29 @@ int main(int argc, char* argv[])
 
   for (int tt = 0; tt < params.maxIters; tt++)
   { 
+    // (tt== params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
     halo_exchange(params, &cells, sendbuf, recvbuf);
+    (tt== params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
     // printf("%d is done halo\n", params.rank);
     float tot_u = timestep(params, &cells, &tmp_cells, obstacles);
-    // float tot_u_MASTER = 0.f;
     if(params.rank == MASTER){
       MPI_Reduce(MPI_IN_PLACE, &tot_u, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
+      av_vels[tt] = tot_u / (float)params.tot_cells;
+      // (tt==params.maxIters-1) ? printf("av_vels[%d]: %f \n",tt,av_vels[tt]) : 0;
+      // (tt==params.maxIters-1) ? printf("rank: %d \t sum tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
+      // (tt==params.maxIters-1) ? printf("rank: %d \t params.tot_cells: %d \n",params.rank,params.tot_cells) : 0;
     }
     else{
       MPI_Reduce(&tot_u, NULL, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
     }
     // printf("%d is done reduce\n", params.rank);
     
-    if (params.rank == MASTER){
-      av_vels[tt] = tot_u / (float)params.tot_cells;
-      // printf("av_vels[%d]: %f\n",tt,av_vels[tt]);
-    }
     /*pointer swap here*/
     t_speed tmp_tmp_cells = cells;
     cells = tmp_cells;
     tmp_cells = tmp_tmp_cells;
     
+    // (tt== params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0;
 #ifdef DEBUG
     float total = total_density(params, &cells);
     float total_MASTER = 0.f;
@@ -255,16 +257,13 @@ int main(int argc, char* argv[])
     }
 #endif
   }
-  // if (params.rank == MASTER){
-  //   printf("av_vels[params.maxIters-1]: %f\n",av_vels[params.maxIters-1]);
-  // }
+
   /* Compute time stops here, collate time starts*/
   gettimeofday(&timstr, NULL);
   comp_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   col_tic=comp_toc;
 
   // Collate data from all ranks to MASTER rank here 
-  //TODO: use MPI_Gather() here? Be aware local_ncols might be different at each rank
   collate_cells(params, &cells, &collated_cells, send_blockbuf, recv_blockbuf);
 
   /* Total/collate time stops here.*/
@@ -294,7 +293,7 @@ int cal_tot_cells(t_param params, int* obstacles){
   __assume(params.ny%8==0);
   for (int jj = 0; jj < params.ny; jj++)
   { 
-    #pragma omp simd
+    // #pragma omp simd
     for (int ii = 0; ii < params.nx; ii++)
     { 
       /* calculate params.tot_cells after initialisation */
@@ -336,7 +335,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
 
   __assume(params.nx%8==0);
 
-  #pragma omp simd
+  // #pragma omp simd
   for (int ii = 0; ii < params.nx; ii++)
   { 
     /* if the cell is not occupied and
@@ -427,7 +426,7 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
   for (int jj = 0; jj < params.local_nrows; jj++)
   { 
     // printf("Thread ID: %d \t Number of threads:%d\n",omp_get_thread_num(),omp_get_num_threads());
-    #pragma omp simd
+    // #pragma omp simd
     for (int ii = 1; ii < params.local_ncols+1; ii++)
     { 
       /******************* propagate & rebound *********************/
@@ -573,7 +572,7 @@ float av_velocity(const t_param params, t_speed* collated_cells, int* obstacles)
 
       __assume_aligned(obstacles, 64);
       
-      #pragma omp simd
+      // #pragma omp simd
       for (int ii = 0; ii < params.nx; ii++)
       {
         /* local density total */
@@ -676,6 +675,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   */
   params->local_nrows = params->ny;
   params->local_ncols = calc_ncols_from_rank(params->rank, params->size, params->nx);
+
   if (params->local_ncols < 1) {
     fprintf(stderr,"Error: too many processes:- local_ncols < 1\n");
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -683,7 +683,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
   /* determine the index of the starting column in obstacles/collated cells for this rank */
   params->start_col = calc_start_columns_from_rank(params->rank, params->local_ncols, params->size, params->nx);
-
+  // printf("rank: %d \t params->start_col: %d\n",params->rank, params->start_col);
   /*
   ** Allocate memory.
   **
@@ -777,8 +777,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   // #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++)
   { 
-    #pragma omp simd
-    for (int ii = 1; ii < params->local_ncols+1; ii++)
+    // #pragma omp simd
+    for (int ii = 0; ii < params->local_ncols+2; ii++)
     {                                  /* main grid for this rank */
       /* centre */
       cells_ptr->speeds_0[ii + jj*(params->local_ncols+2)] = w0;
@@ -794,39 +794,41 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
       cells_ptr->speeds_8[ii + jj*(params->local_ncols+2)] = w2;
       
       /* Initialise halo regions */
-      if (ii==1) {                      /* left halo column */
-        /* centre */
-        cells_ptr->speeds_0[ii-1 + jj*(params->local_ncols+2)] = w0;
-        /* axis directions */
-        cells_ptr->speeds_1[ii-1 + jj*(params->local_ncols+2)] = w1;
-        cells_ptr->speeds_2[ii-1 + jj*(params->local_ncols+2)] = w1;
-        cells_ptr->speeds_3[ii-1 + jj*(params->local_ncols+2)] = w1;
-        cells_ptr->speeds_4[ii-1 + jj*(params->local_ncols+2)] = w1;
-        /* diagonals */
-        cells_ptr->speeds_5[ii-1 + jj*(params->local_ncols+2)] = w2;
-        cells_ptr->speeds_6[ii-1 + jj*(params->local_ncols+2)] = w2;
-        cells_ptr->speeds_7[ii-1 + jj*(params->local_ncols+2)] = w2;
-        cells_ptr->speeds_8[ii-1 + jj*(params->local_ncols+2)] = w2;
-      }else if (ii==params->local_ncols){       /* right halo column */
-        /* centre */
-        cells_ptr->speeds_0[ii+1 + jj*(params->local_ncols+2)] = w0;
-        /* axis directions */
-        cells_ptr->speeds_1[ii+1 + jj*(params->local_ncols+2)] = w1;
-        cells_ptr->speeds_2[ii+1 + jj*(params->local_ncols+2)] = w1;
-        cells_ptr->speeds_3[ii+1 + jj*(params->local_ncols+2)] = w1;
-        cells_ptr->speeds_4[ii+1 + jj*(params->local_ncols+2)] = w1;
-        /* diagonals */
-        cells_ptr->speeds_5[ii+1 + jj*(params->local_ncols+2)] = w2;
-        cells_ptr->speeds_6[ii+1 + jj*(params->local_ncols+2)] = w2;
-        cells_ptr->speeds_7[ii+1 + jj*(params->local_ncols+2)] = w2;
-        cells_ptr->speeds_8[ii+1 + jj*(params->local_ncols+2)] = w2;
-      }
+      // if (ii==1) {                      /* left halo column */
+      //   /* centre */
+      //   cells_ptr->speeds_0[ii-1 + jj*(params->local_ncols+2)] = w0;
+      //   /* axis directions */
+      //   cells_ptr->speeds_1[ii-1 + jj*(params->local_ncols+2)] = w1;
+      //   cells_ptr->speeds_2[ii-1 + jj*(params->local_ncols+2)] = w1;
+      //   cells_ptr->speeds_3[ii-1 + jj*(params->local_ncols+2)] = w1;
+      //   cells_ptr->speeds_4[ii-1 + jj*(params->local_ncols+2)] = w1;
+      //   /* diagonals */
+      //   cells_ptr->speeds_5[ii-1 + jj*(params->local_ncols+2)] = w2;
+      //   cells_ptr->speeds_6[ii-1 + jj*(params->local_ncols+2)] = w2;
+      //   cells_ptr->speeds_7[ii-1 + jj*(params->local_ncols+2)] = w2;
+      //   cells_ptr->speeds_8[ii-1 + jj*(params->local_ncols+2)] = w2;
+      // }else if (ii==params->local_ncols){       /* right halo column */
+      //   /* centre */
+      //   cells_ptr->speeds_0[ii+1 + jj*(params->local_ncols+2)] = w0;
+      //   /* axis directions */
+      //   cells_ptr->speeds_1[ii+1 + jj*(params->local_ncols+2)] = w1;
+      //   cells_ptr->speeds_2[ii+1 + jj*(params->local_ncols+2)] = w1;
+      //   cells_ptr->speeds_3[ii+1 + jj*(params->local_ncols+2)] = w1;
+      //   cells_ptr->speeds_4[ii+1 + jj*(params->local_ncols+2)] = w1;
+      //   /* diagonals */
+      //   cells_ptr->speeds_5[ii+1 + jj*(params->local_ncols+2)] = w2;
+      //   cells_ptr->speeds_6[ii+1 + jj*(params->local_ncols+2)] = w2;
+      //   cells_ptr->speeds_7[ii+1 + jj*(params->local_ncols+2)] = w2;
+      //   cells_ptr->speeds_8[ii+1 + jj*(params->local_ncols+2)] = w2;
+      // }
     }
   }
-  
+
+  // printrankspeed(params, cells_ptr->speeds_8, 0);
+
   for (int jj = 0; jj < params->ny; jj++)
   { 
-    #pragma omp simd
+    // #pragma omp simd
     for (int ii = 0; ii < params->nx; ii++)
     {
       /* first set all cells in obstacle array to zero */
@@ -975,7 +977,7 @@ float total_density(const t_param params, t_speed* cells)
       __assume_aligned(cells->speeds_7, 64);
       __assume_aligned(cells->speeds_8, 64);
       
-      #pragma omp simd
+      // #pragma omp simd
       for (int ii = 1; ii < (params.local_ncols+1); ii++)
       {
         total +=  cells->speeds_0[ii + jj*(params.local_ncols+2)]
@@ -1070,7 +1072,7 @@ int write_values(const t_param params, t_speed* collated_cells, int* obstacles, 
   {
     die("could not open file output file", __LINE__, __FILE__);
   }
-  #pragma omp simd
+  // #pragma omp simd
   for (int ii = 0; ii < params.maxIters; ii++)
   {
     fprintf(fp, "%d:\t%.12E\n", ii, av_vels[ii]);
@@ -1102,13 +1104,13 @@ int calc_ncols_from_rank(int rank, int size, int tot_colmns)
 int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_colmns){
   /* determine the index of the starting column in obstacles/collated cells for this rank */
   // int start_col;
-  // if (params.nx % params.size == 0){
-  //   start_col = params.rank * params.local_ncols;
+  // if (tot_colmns % size == 0){
+  //   start_col = rank * local_ncols;
   // }else {
-  //   if (params.local_ncols == (int)(params.nx/params.size) + 1){
-  //     start_col = params.rank * params.local_ncols;
+  //   if (local_ncols == (int)(tot_colmns/size) + 1){
+  //     start_col = rank * local_ncols;
   //   }else {
-  //     start_col = params.rank * params.local_ncols + params.nx%params.size;
+  //     start_col = rank * local_ncols + tot_colmns%size;
   //   }
   // }
   int start_col = ( (tot_colmns % size == 0) || (local_ncols == (tot_colmns/size) + 1) ) ? 
@@ -1255,4 +1257,62 @@ void usage(const char* exe)
 {
   fprintf(stderr, "Usage: %s <paramfile> <obstaclefile>\n", exe);
   exit(EXIT_FAILURE);
+}
+
+void printrankspeed(t_param* params, float* speed, int rank, char* PrintType, int tt, float tot_u, int tot_cells, float av_vels){
+  if (params->rank == rank){
+    if (PrintType == "cells_speed0.csv" || PrintType == "cells_speed1.csv" || PrintType == "cells_speed2.csv" ||
+        PrintType == "cells_speed3.csv" || PrintType == "cells_speed4.csv" || PrintType == "cells_speed5.csv" ||
+        PrintType == "cells_speed6.csv" || PrintType == "cells_speed7.csv" || PrintType == "cells_speed8.csv"){
+        FILE*   fp;                     /* file pointer */
+        fp = fopen(PrintType,"w");
+        if (fp == NULL){
+            die("The file could mot be open for some reason", __LINE__, __FILE__);
+        }
+        for (int ii = 0; ii < params->local_ncols+2; ii++){
+          if (ii == 0){
+            fprintf(fp,"halo(l),,");
+          }else if (ii == params->local_ncols+1){
+            fprintf(fp,",halo(r)\n");
+          }else{
+            fprintf(fp,"c%d,",ii);
+          }
+        }
+        for (int jj = 0; jj < params->local_nrows; jj++){
+            // #pragma omp simd
+            for (int ii = 0; ii < params->local_ncols+2; ii++)
+            {   
+                if (ii == 0){
+                    fprintf(fp,"%f,|,",speed[ii + jj*(params->local_ncols+2)]);
+                }else if (ii == params->local_ncols+1){
+                    fprintf(fp,"|,%f\n",speed[ii + jj*(params->local_ncols+2)]);
+                }else {
+                    fprintf(fp,"%f,",speed[ii + jj*(params->local_ncols+2)]);
+                }
+                
+                if (ii==params->local_ncols+1 && jj==params->local_nrows-1){
+                    fprintf(fp,"\n\nrank: %d,,iteration:,%d,,n_rows:,%d,,n_cols:,1+%d+1,,total_size:,%d,,tot_u:,%f,,tot_cells:,%d,,av_vels:,%f\n",params->rank,tt,params->local_nrows,params->local_ncols,params->local_nrows*(params->local_ncols+2),tot_u,tot_cells,av_vels);
+                }
+            }            
+        }
+        fclose(fp);
+    }else if (PrintType == "terminal"){
+      for (int jj = 0; jj < params->local_nrows; jj++)
+      { 
+        printf("\n-------------------------------------------------------\n");
+        // #pragma omp simd
+        for (int ii = 0; ii < params->local_ncols+2; ii++)
+        { 
+          if (ii==0 || ii==params->local_ncols+1){printf("|%f| ",speed[ii + jj*(params->local_ncols+2)]);}
+          else {printf("%f ",speed[ii + jj*(params->local_ncols+2)]);}
+          
+          if (ii==params->local_ncols+1 && jj==params->local_nrows-1){
+            printf("\n========================================================\n");
+            printf("\n params->local_nrows: %d\tparams->local_ncols(include halo): %d+%d+%d\ttotal_size: %d\n\n",params->local_nrows,1,params->local_ncols,1,params->local_nrows*(params->local_ncols+2));
+          }
+        }
+      }
+    }
+  }
+
 }
