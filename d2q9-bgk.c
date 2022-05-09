@@ -162,6 +162,8 @@ int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_co
 void die(const char* message, const int line, const char* file);
 void usage(const char* exe);
 void printrankspeed(t_param* params, float* speed, int rank, char* PrintType, int tt, float tot_u, int tot_cells, float av_vels);
+void printcollatedspeed(t_param* params, float* speed, int rank, char* PrintType, float av_vels);
+void printrankobstacles(t_param* params, int* obstacles, int rank, char* PrintType);
 
 /*
 ** main program:
@@ -220,31 +222,34 @@ int main(int argc, char* argv[])
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   comp_tic=init_toc;
 
-  for (int tt = 0; tt < params.maxIters; tt++)
+  for (int tt = 0; tt < 1; tt++)
   { 
-    // (tt== params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
+    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
     halo_exchange(params, &cells, sendbuf, recvbuf);
-    (tt== params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
-    // printf("%d is done halo\n", params.rank);
+    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
     float tot_u = timestep(params, &cells, &tmp_cells, obstacles);
     if(params.rank == MASTER){
+      // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
       MPI_Reduce(MPI_IN_PLACE, &tot_u, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
       av_vels[tt] = tot_u / (float)params.tot_cells;
       // (tt==params.maxIters-1) ? printf("av_vels[%d]: %f \n",tt,av_vels[tt]) : 0;
-      // (tt==params.maxIters-1) ? printf("rank: %d \t sum tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
+      // (tt==0) ? printf("rank: %d \t sum tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
       // (tt==params.maxIters-1) ? printf("rank: %d \t params.tot_cells: %d \n",params.rank,params.tot_cells) : 0;
     }
     else{
+      // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
       MPI_Reduce(&tot_u, NULL, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
     }
-    // printf("%d is done reduce\n", params.rank);
     
+    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, MASTER, "cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0; 
+    // (tt == params.maxIters-1) ? printrankspeed(&params, tmp_cells.speeds_5, MASTER, "tmp_cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0;
     /*pointer swap here*/
     t_speed tmp_tmp_cells = cells;
     cells = tmp_cells;
     tmp_cells = tmp_tmp_cells;
-    
-    // (tt== params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0;
+
+    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, MASTER, "cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0;
+    // (tt == params.maxIters-1) ? printrankspeed(&params, tmp_cells.speeds_5, MASTER, "tmp_cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0;
 #ifdef DEBUG
     float total = total_density(params, &cells);
     float total_MASTER = 0.f;
@@ -258,6 +263,8 @@ int main(int argc, char* argv[])
 #endif
   }
 
+  // printrankobstacles(&params, obstacles, MASTER, "obstacles_rank.csv");
+  // printrankobstacles(&params, obstacles, MASTER, "obstacles.csv");
   /* Compute time stops here, collate time starts*/
   gettimeofday(&timstr, NULL);
   comp_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
@@ -265,6 +272,7 @@ int main(int argc, char* argv[])
 
   // Collate data from all ranks to MASTER rank here 
   collate_cells(params, &cells, &collated_cells, send_blockbuf, recv_blockbuf);
+  // printcollatedspeed(&params, collated_cells.speeds_5, MASTER,"collated_cells_speed5.csv", av_vels[params.maxIters-1]);
 
   /* Total/collate time stops here.*/
   gettimeofday(&timstr, NULL);
@@ -482,9 +490,16 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
                        + cells8))
                       / local_density;
 
+      // if (params.rank==MASTER){
+      //   (ii==1&&jj==0) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+      //   (ii==1&&jj==0) ? printf("local_density: %f\n",local_density) : 0;
+      //   (ii==1&&jj==0) ? printf("u_x: %f\n",u_x) : 0;
+      //   (ii==1&&jj==0) ? printf("u_y: %f\n",u_y) : 0;
+      // }
+
       /* velocity squared */
       const float u_sq = u_x * u_x + u_y * u_y;
-
+      
       /* directional velocity components */
       // float u[NSPEEDS];
       const float u_1 =   u_x;        /* east */
@@ -542,6 +557,65 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
 
       /* accumulate the norm of x- and y- velocity components */
       tot_u += (!obstacles[(jj*params.nx+params.start_col) + ii-1]) ? sqrtf((u_x * u_x) + (u_y * u_y)) : 0;
+
+      //rank 0
+      if (params.rank==MASTER){
+        (ii==1&&jj==0) ? printf("------------------ rank 0 ------------------\n") : 0;
+        (ii==1&&jj==0) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
+        (ii==1&&jj==0) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+        (ii==1&&jj==0) ? printf("local_density: %f\n",local_density) : 0;
+        (ii==1&&jj==0) ? printf("u_x: %f\n",u_x) : 0;
+        (ii==1&&jj==0) ? printf("u_y: %f\n",u_y) : 0;
+        (ii==1&&jj==0) ? printf("tot_u: %f\n",tot_u) : 0;
+
+        (ii==1&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
+        (ii==1&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+        (ii==1&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
+        (ii==1&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
+        (ii==1&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
+        (ii==1&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
+
+        (ii==43&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
+        (ii==43&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+        (ii==43&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
+        (ii==43&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
+        (ii==43&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
+        (ii==43&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
+      }
+      //rank 1
+      // if (params.rank==1){
+      //   (ii==1&&jj==127) ? printf("------------------ rank 1 ------------------\n") : 0;
+      //   (ii==1&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
+      //   (ii==1&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+      //   (ii==1&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
+      //   (ii==1&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
+      //   (ii==1&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
+      //   (ii==1&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
+
+      //   (ii==43&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
+      //   (ii==43&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+      //   (ii==43&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
+      //   (ii==43&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
+      //   (ii==43&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
+      //   (ii==43&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
+      // }
+      // // rank 2
+      // if (params.rank==2){
+      //   (ii==1&&jj==127) ? printf("------------------ rank 2 ------------------\n") : 0;
+      //   (ii==1&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
+      //   (ii==1&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+      //   (ii==1&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
+      //   (ii==1&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
+      //   (ii==1&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
+      //   (ii==1&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
+        
+      //   (ii==42&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
+      //   (ii==42&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
+      //   (ii==42&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
+      //   (ii==42&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
+      //   (ii==42&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
+      //   (ii==42&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
+      // }
 
     }
   }
@@ -1259,11 +1333,15 @@ void usage(const char* exe)
   exit(EXIT_FAILURE);
 }
 
+/*run this function one at a time to produce the correct cells result*/
 void printrankspeed(t_param* params, float* speed, int rank, char* PrintType, int tt, float tot_u, int tot_cells, float av_vels){
   if (params->rank == rank){
     if (PrintType == "cells_speed0.csv" || PrintType == "cells_speed1.csv" || PrintType == "cells_speed2.csv" ||
         PrintType == "cells_speed3.csv" || PrintType == "cells_speed4.csv" || PrintType == "cells_speed5.csv" ||
-        PrintType == "cells_speed6.csv" || PrintType == "cells_speed7.csv" || PrintType == "cells_speed8.csv"){
+        PrintType == "cells_speed6.csv" || PrintType == "cells_speed7.csv" || PrintType == "cells_speed8.csv" ||
+        PrintType == "tmp_cells_speed0.csv" || PrintType == "tmp_cells_speed1.csv" || PrintType == "tmp_cells_speed2.csv" ||
+        PrintType == "tmp_cells_speed3.csv" || PrintType == "tmp_cells_speed4.csv" || PrintType == "tmp_cells_speed5.csv" ||
+        PrintType == "tmp_cells_speed6.csv" || PrintType == "tmp_cells_speed7.csv" || PrintType == "tmp_cells_speed8.csv"){
         FILE*   fp;                     /* file pointer */
         fp = fopen(PrintType,"w");
         if (fp == NULL){
@@ -1315,4 +1393,103 @@ void printrankspeed(t_param* params, float* speed, int rank, char* PrintType, in
     }
   }
 
+}
+
+void printcollatedspeed(t_param* params, float* speed, int rank, char* PrintType, float av_vels){
+  if (params->rank == MASTER){
+    if (PrintType == "collated_cells_speed0.csv" || PrintType == "collated_cells_speed1.csv" || PrintType == "collated_cells_speed2.csv" ||
+        PrintType == "collated_cells_speed3.csv" || PrintType == "collated_cells_speed4.csv" || PrintType == "collated_cells_speed5.csv" ||
+        PrintType == "collated_cells_speed6.csv" || PrintType == "collated_cells_speed7.csv" || PrintType == "collated_cells_speed8.csv"){
+        FILE*   fp;                     /* file pointer */
+        fp = fopen(PrintType,"w");
+        if (fp == NULL){
+            die("The file could mot be open for some reason", __LINE__, __FILE__);
+        }
+        for (int ii = 0; ii < params->nx; ii++){
+          if (ii == params->nx-1){
+            fprintf(fp,"c%d\n",ii);
+          }else{
+            fprintf(fp,"c%d,",ii);
+          }
+        }
+        //print out the whole grid
+        for (int jj = 0; jj < params->ny; jj++){
+            // #pragma omp simd
+            for (int ii = 0; ii < params->nx; ii++)
+            {   
+                if (ii == params->nx-1){
+                    fprintf(fp,"%f\n",speed[ii + jj*(params->nx)]);
+                }else {
+                    fprintf(fp,"%f,",speed[ii + jj*(params->nx)]);
+                }
+                
+                if (ii==params->nx-1 && jj==params->ny-1){
+                    fprintf(fp,"\n\nrank: %d,,n_rows:,%d,,n_cols:,%d,,grid size:,%d,,av_vels:,%f\n",params->rank,params->ny,params->nx,params->ny*params->nx,av_vels);
+                }
+            }            
+        }
+        fclose(fp);
+    }
+  }
+}
+
+void printrankobstacles(t_param* params, int* obstacles, int rank, char* PrintType){
+  if (params->rank == rank){
+    FILE*   fp;                     /* file pointer */
+    fp = fopen(PrintType,"w");
+    if (fp == NULL){
+      die("The file could mot be open for some reason", __LINE__, __FILE__);
+    }
+    //print out sub grid from ranks
+    if (PrintType == "obstacles_rank.csv"){
+        for (int ii = 0; ii < params->local_ncols; ii++){
+          if (ii == params->local_ncols-1){
+            fprintf(fp,"c%d\n",ii);
+          }else{
+            fprintf(fp,"c%d,",ii);
+          }
+        }
+        for (int jj = 0; jj < params->local_nrows; jj++){
+            // #pragma omp simd
+            for (int ii = 1; ii < params->local_ncols+1; ii++)
+            {   
+                if (ii == params->local_ncols){
+                    fprintf(fp,"%d\n",obstacles[(jj*params->nx+params->start_col) + ii-1]);
+                }else {
+                    fprintf(fp,"%d,",obstacles[(jj*params->nx+params->start_col) + ii-1]);
+                }
+                
+                if (ii==params->local_ncols && jj==params->local_nrows-1){
+                    fprintf(fp,"\n\nrank: %d,,n_rows:,%d,,n_cols:,%d,,total_size:,%d\n",params->rank,params->local_nrows,params->local_ncols,params->local_nrows*params->local_ncols);
+                }
+            }            
+        }
+        fclose(fp);
+    //print out the whole grid
+    }else if (PrintType == "obstacles.csv"){
+        for (int ii = 0; ii < params->nx; ii++){
+          if (ii == params->nx-1){
+            fprintf(fp,"c%d\n",ii);
+          }else{
+            fprintf(fp,"c%d,",ii);
+          }
+        }
+        for (int jj = 0; jj < params->ny; jj++){
+            // #pragma omp simd
+            for (int ii = 0; ii < params->nx; ii++)
+            {   
+                if (ii == params->nx-1){
+                    fprintf(fp,"%d\n",obstacles[ii + jj*(params->nx)]);
+                }else {
+                    fprintf(fp,"%d,",obstacles[ii + jj*(params->nx)]);
+                }
+                
+                if (ii==params->nx-1 && jj==params->ny-1){
+                    fprintf(fp,"\n\nrank: %d,,n_rows:,%d,,n_cols:,%d,,grid size:,%d\n",params->rank,params->ny,params->nx,params->ny*params->nx);
+                }
+            }            
+        }
+        fclose(fp);
+    }
+  }
 }
