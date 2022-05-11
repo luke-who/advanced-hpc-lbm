@@ -309,7 +309,6 @@ int cal_tot_cells(t_param params, int* obstacles){
   __assume(params.ny%8==0);
   for (int jj = 0; jj < params.ny; jj++)
   { 
-    // #pragma omp simd
     for (int ii = 0; ii < params.nx; ii++)
     { 
       /* calculate params.tot_cells after initialisation */
@@ -1003,7 +1002,7 @@ int write_values(const t_param params, t_speed* collated_cells, int* obstacles, 
 
   for (int jj = 0; jj < params.ny; jj++)
   { 
-    for (int ii = 1; ii < (params.nx); ii++)
+    for (int ii = 0; ii < params.nx; ii++)
     {
       /* an occupied cell */
       if (obstacles[ii + jj*params.nx])
