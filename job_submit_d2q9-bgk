@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name d2q9-bgk
-#SBATCH --nodes 3
-#SBATCH --ntasks-per-node 1
+#SBATCH --nodes 4
+#SBATCH --ntasks-per-node 28
 #SBATCH --cpus-per-task=1
 #SBATCH --time 00:15:00
 #SBATCH --partition veryshort
@@ -32,7 +32,9 @@ echo `echo $SLURM_JOB_NODELIST | uniq`
 # with mpi
 # mpirun -np 4 -genv I_MPI_PIN=1 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # mpirun -np 4 -ppn 2 -bind-to -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
-mpirun -np 3 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+# mpirun -np 112 ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+# mpirun -np 112 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
 # srun --mpi=pmi2 --ntasks=4 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # srun --mpi=pmi2 -n 4 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
