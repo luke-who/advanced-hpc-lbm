@@ -68,6 +68,8 @@
 // #define DEBUG
 #define MASTER 0 /* master rank */
 
+float u_xx, u_yy;  // for printing out the values of u_x and u_y inside the main time step
+
 /* struct to hold the parameter values */
 typedef struct
 {
@@ -89,7 +91,8 @@ typedef struct
   // MPI_Status status=MPI_STATUS_IGNORE;     /* struct used by MPI_Recv */
   int local_nrows;       /* number of rows apportioned to this rank */
   int local_ncols;       /* number of columns apportioned to this rank(excluding the extra two halo columns) */
-  int start_col;         /* determine the index of the starting column in obstacles for this rank */
+  int start_col;         /* determine the index of the starting column in obstacles&collated cells for this rank */
+  int end_col;         /* determine the index of the end column in obstacles&collated cells for this rank */
 } t_param;
 
 
@@ -155,8 +158,9 @@ float calc_reynolds(const t_param params, t_speed* collated_cells, int* obstacle
 /* calculate number of columns for each rank */
 int calc_ncols_from_rank(int rank, int size, int tot_colmns);
 
-/* calculate the starting column in collated cells for each rank */
-int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_colmns);
+/* calculate the starting&end column in obstacles&collated cells for each rank */
+int calc_start_column_from_rank(int rank, int local_ncols, int size, int tot_colmns);
+int calc_end_column_from_rank(int start_col, int local_ncols);
 
 /* utility functions */
 void die(const char* message, const int line, const char* file);
@@ -216,28 +220,30 @@ int main(int argc, char* argv[])
   // printf("%d is done initialising\n", params.rank);
   /* calculate totoal number of cells that have obstacles==0, note only the MASTER rank needs this value to compute av_vel[tt] at each timestep */
   params.tot_cells = cal_tot_cells(params, obstacles);
-
+  // printf("params.rank: %d, params.tot_cells: %d\n",params.rank, params.tot_cells);
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   comp_tic=init_toc;
 
-  for (int tt = 0; tt < 1; tt++)
+  for (int tt = 0; tt < params.maxIters; tt++)
   { 
-    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
+    accelerate_flow(params, &cells, obstacles);
+    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, MASTER, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;     /* print speeds_5 of a certain iteration on MASTER rank*/
     halo_exchange(params, &cells, sendbuf, recvbuf);
-    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, 2, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
+    // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, MASTER, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;
     float tot_u = timestep(params, &cells, &tmp_cells, obstacles);
     if(params.rank == MASTER){
-      // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
+      // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;       /* print the value of tot_u on MASTER rank before reduction */
       MPI_Reduce(MPI_IN_PLACE, &tot_u, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
       av_vels[tt] = tot_u / (float)params.tot_cells;
-      // (tt==params.maxIters-1) ? printf("av_vels[%d]: %f \n",tt,av_vels[tt]) : 0;
-      // (tt==0) ? printf("rank: %d \t sum tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
-      // (tt==params.maxIters-1) ? printf("rank: %d \t params.tot_cells: %d \n",params.rank,params.tot_cells) : 0;
+      // (tt==0) ? printf("rank: %d \t sum tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;     /* print the value of the sum of tot_u on MASTER rank after reduction */
+
+      // (tt==params.maxIters-1) ? printf("av_vels[%d]: %f \n",tt,av_vels[tt]) : 0;     /* print av_vel[tt] */
+      // (tt==params.maxIters-1) ? printf("rank: %d \t params.tot_cells: %d \n",params.rank,params.tot_cells) : 0;      /* print stored tot_cells value */
     }
     else{
-      // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;
+      // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;     /* print the value of tot_u on other ranks other than MASTER rank */
       MPI_Reduce(&tot_u, NULL, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
     }
     
@@ -250,6 +256,8 @@ int main(int argc, char* argv[])
 
     // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, MASTER, "cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0;
     // (tt == params.maxIters-1) ? printrankspeed(&params, tmp_cells.speeds_5, MASTER, "tmp_cells_speed5.csv",tt, tot_u, params.tot_cells, av_vels[tt]) : 0;
+
+    if(params.rank == MASTER){ (tt==params.maxIters-1) ? printf("timestep(tt):%d\tav_vel:%f\n",tt,av_vels[tt]) : 0; }
 #ifdef DEBUG
     float total = total_density(params, &cells);
     float total_MASTER = 0.f;
@@ -315,7 +323,6 @@ int cal_tot_cells(t_param params, int* obstacles){
 
 float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
 {
-  accelerate_flow(params, cells, obstacles);
 
   return propa_rebd_collsn_av(params, cells, tmp_cells, obstacles);
 }
@@ -344,23 +351,23 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
   __assume(params.nx%8==0);
 
   // #pragma omp simd
-  for (int ii = 0; ii < params.nx; ii++)
+  for (int ii = 1; ii < params.local_ncols+1; ii++)
   { 
     /* if the cell is not occupied and
     ** we don't send a negative density */
-    if (!obstacles[ii + jj*params.nx]
-        && (cells->speeds_3[ii + jj*params.nx] - w1) > 0.f
-        && (cells->speeds_6[ii + jj*params.nx] - w2) > 0.f
-        && (cells->speeds_7[ii + jj*params.nx] - w2) > 0.f)
+    if (!obstacles[ii + jj*(params.local_ncols+2)]
+        && (cells->speeds_3[ii + jj*(params.local_ncols+2)] - w1) > 0.f
+        && (cells->speeds_6[ii + jj*(params.local_ncols+2)] - w2) > 0.f
+        && (cells->speeds_7[ii + jj*(params.local_ncols+2)] - w2) > 0.f)
     {
       /* increase 'east-side' densities */
-      cells->speeds_1[ii + jj*params.nx] += w1;
-      cells->speeds_5[ii + jj*params.nx] += w2;
-      cells->speeds_8[ii + jj*params.nx] += w2;
+      cells->speeds_1[ii + jj*(params.local_ncols+2)] += w1;
+      cells->speeds_5[ii + jj*(params.local_ncols+2)] += w2;
+      cells->speeds_8[ii + jj*(params.local_ncols+2)] += w2;
       /* decrease 'west-side' densities */
-      cells->speeds_3[ii + jj*params.nx] -= w1;
-      cells->speeds_6[ii + jj*params.nx] -= w2;
-      cells->speeds_7[ii + jj*params.nx] -= w2;
+      cells->speeds_3[ii + jj*(params.local_ncols+2)] -= w1;
+      cells->speeds_6[ii + jj*(params.local_ncols+2)] -= w2;
+      cells->speeds_7[ii + jj*(params.local_ncols+2)] -= w2;
     }
   }
   return EXIT_SUCCESS;
@@ -490,16 +497,10 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
                        + cells8))
                       / local_density;
 
-      // if (params.rank==MASTER){
-      //   (ii==1&&jj==0) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-      //   (ii==1&&jj==0) ? printf("local_density: %f\n",local_density) : 0;
-      //   (ii==1&&jj==0) ? printf("u_x: %f\n",u_x) : 0;
-      //   (ii==1&&jj==0) ? printf("u_y: %f\n",u_y) : 0;
-      // }
-
       /* velocity squared */
       const float u_sq = u_x * u_x + u_y * u_y;
-      
+      u_xx = u_x;
+      u_yy = u_y;
       /* directional velocity components */
       // float u[NSPEEDS];
       const float u_1 =   u_x;        /* east */
@@ -514,9 +515,7 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
       /* equilibrium densities */
       // float d_equ[NSPEEDS];
       /* zero velocity density: weight w0 */
-      const float d_equ_0 = 
-      w0 * local_density
-                * (1.f - u_sq * 1.5f);
+      const float d_equ_0 = w0 * local_density * (1.f - u_sq * 1.5f);
       /* axis speeds: weight w1 */
       const float d_equ_1 = w1 * local_density * (1.f + u_1 * 3.f
                                       + (u_1 * u_1) * 4.5f
@@ -557,65 +556,6 @@ float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_spee
 
       /* accumulate the norm of x- and y- velocity components */
       tot_u += (!obstacles[(jj*params.nx+params.start_col) + ii-1]) ? sqrtf((u_x * u_x) + (u_y * u_y)) : 0;
-
-      //rank 0
-      if (params.rank==MASTER){
-        (ii==1&&jj==0) ? printf("------------------ rank 0 ------------------\n") : 0;
-        (ii==1&&jj==0) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
-        (ii==1&&jj==0) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-        (ii==1&&jj==0) ? printf("local_density: %f\n",local_density) : 0;
-        (ii==1&&jj==0) ? printf("u_x: %f\n",u_x) : 0;
-        (ii==1&&jj==0) ? printf("u_y: %f\n",u_y) : 0;
-        (ii==1&&jj==0) ? printf("tot_u: %f\n",tot_u) : 0;
-
-        (ii==1&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
-        (ii==1&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-        (ii==1&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
-        (ii==1&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
-        (ii==1&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
-        (ii==1&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
-
-        (ii==43&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
-        (ii==43&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-        (ii==43&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
-        (ii==43&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
-        (ii==43&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
-        (ii==43&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
-      }
-      //rank 1
-      // if (params.rank==1){
-      //   (ii==1&&jj==127) ? printf("------------------ rank 1 ------------------\n") : 0;
-      //   (ii==1&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
-      //   (ii==1&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-      //   (ii==1&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
-      //   (ii==1&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
-      //   (ii==1&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
-      //   (ii==1&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
-
-      //   (ii==43&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
-      //   (ii==43&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-      //   (ii==43&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
-      //   (ii==43&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
-      //   (ii==43&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
-      //   (ii==43&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
-      // }
-      // // rank 2
-      // if (params.rank==2){
-      //   (ii==1&&jj==127) ? printf("------------------ rank 2 ------------------\n") : 0;
-      //   (ii==1&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
-      //   (ii==1&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-      //   (ii==1&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
-      //   (ii==1&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
-      //   (ii==1&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
-      //   (ii==1&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
-        
-      //   (ii==42&&jj==127) ? printf("Iteration >> jj:%d, ii;%d\n",jj,ii) : 0;
-      //   (ii==42&&jj==127) ? printf("cells0:%f, cells1:%f, cells2:%f, cells3:%f, cells4:%f, cells5:%f, cells6:%f, cells7:%f, cells8:%f\n",cells0,cells1,cells2,cells3,cells4,cells5,cells6,cells7,cells8) : 0;
-      //   (ii==42&&jj==127) ? printf("local_density: %f\n",local_density) : 0;
-      //   (ii==42&&jj==127) ? printf("u_x: %f\n",u_x) : 0;
-      //   (ii==42&&jj==127) ? printf("u_y: %f\n",u_y) : 0;
-      //   (ii==42&&jj==127) ? printf("tot_u: %f\n",tot_u) : 0;
-      // }
 
     }
   }
@@ -749,6 +689,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   */
   params->local_nrows = params->ny;
   params->local_ncols = calc_ncols_from_rank(params->rank, params->size, params->nx);
+  printf("Rank %d : nrows = %d, ncols = %d\n", params->rank, params->local_nrows, params->local_ncols);
 
   if (params->local_ncols < 1) {
     fprintf(stderr,"Error: too many processes:- local_ncols < 1\n");
@@ -756,7 +697,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   }
 
   /* determine the index of the starting column in obstacles/collated cells for this rank */
-  params->start_col = calc_start_columns_from_rank(params->rank, params->local_ncols, params->size, params->nx);
+  params->start_col = calc_start_column_from_rank(params->rank, params->local_ncols, params->size, params->nx);
+  params->end_col = calc_end_column_from_rank(params->start_col, params->local_ncols);
   // printf("rank: %d \t params->start_col: %d\n",params->rank, params->start_col);
   /*
   ** Allocate memory.
@@ -852,8 +794,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   for (int jj = 0; jj < params->ny; jj++)
   { 
     // #pragma omp simd
-    for (int ii = 0; ii < params->local_ncols+2; ii++)
-    {                                  /* main grid for this rank */
+    for (int ii = 1; ii < params->local_ncols+1; ii++)
+    {                                  /* main grid for this rank (excluding halo)*/
       /* centre */
       cells_ptr->speeds_0[ii + jj*(params->local_ncols+2)] = w0;
       /* axis directions */
@@ -867,38 +809,9 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
       cells_ptr->speeds_7[ii + jj*(params->local_ncols+2)] = w2;
       cells_ptr->speeds_8[ii + jj*(params->local_ncols+2)] = w2;
       
-      /* Initialise halo regions */
-      // if (ii==1) {                      /* left halo column */
-      //   /* centre */
-      //   cells_ptr->speeds_0[ii-1 + jj*(params->local_ncols+2)] = w0;
-      //   /* axis directions */
-      //   cells_ptr->speeds_1[ii-1 + jj*(params->local_ncols+2)] = w1;
-      //   cells_ptr->speeds_2[ii-1 + jj*(params->local_ncols+2)] = w1;
-      //   cells_ptr->speeds_3[ii-1 + jj*(params->local_ncols+2)] = w1;
-      //   cells_ptr->speeds_4[ii-1 + jj*(params->local_ncols+2)] = w1;
-      //   /* diagonals */
-      //   cells_ptr->speeds_5[ii-1 + jj*(params->local_ncols+2)] = w2;
-      //   cells_ptr->speeds_6[ii-1 + jj*(params->local_ncols+2)] = w2;
-      //   cells_ptr->speeds_7[ii-1 + jj*(params->local_ncols+2)] = w2;
-      //   cells_ptr->speeds_8[ii-1 + jj*(params->local_ncols+2)] = w2;
-      // }else if (ii==params->local_ncols){       /* right halo column */
-      //   /* centre */
-      //   cells_ptr->speeds_0[ii+1 + jj*(params->local_ncols+2)] = w0;
-      //   /* axis directions */
-      //   cells_ptr->speeds_1[ii+1 + jj*(params->local_ncols+2)] = w1;
-      //   cells_ptr->speeds_2[ii+1 + jj*(params->local_ncols+2)] = w1;
-      //   cells_ptr->speeds_3[ii+1 + jj*(params->local_ncols+2)] = w1;
-      //   cells_ptr->speeds_4[ii+1 + jj*(params->local_ncols+2)] = w1;
-      //   /* diagonals */
-      //   cells_ptr->speeds_5[ii+1 + jj*(params->local_ncols+2)] = w2;
-      //   cells_ptr->speeds_6[ii+1 + jj*(params->local_ncols+2)] = w2;
-      //   cells_ptr->speeds_7[ii+1 + jj*(params->local_ncols+2)] = w2;
-      //   cells_ptr->speeds_8[ii+1 + jj*(params->local_ncols+2)] = w2;
-      // }
     }
   }
-
-  // printrankspeed(params, cells_ptr->speeds_8, 0);
+  // printrankspeed(params, cells_ptr->speeds_5, MASTER, "cells_speed5.csv",0, 0, params->tot_cells, 0);
 
   for (int jj = 0; jj < params->ny; jj++)
   { 
@@ -957,9 +870,9 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   ** at each timestep
   */
   *av_vels_ptr = (float*)_mm_malloc(sizeof(float) * params->maxIters,64);
-  // printf("params->tot_cells: %d, params->ny: %d, params->nx: %d\n",params->tot_cells,params->ny,params->nx);
-  // printf("rank %d * sendbuf size: %d\n",params->rank,(params->ny * NSPEEDS));
-  // printf("rank %d <-> rank %d <-> rank %d, size: %d, params->local_ncols: %d, params->start_col: %d\n",params->left,params->rank,params->right,params->size, params->local_ncols, params->start_col);
+  // printf("params->ny: %d, params->nx: %d\n",params->ny,params->nx);
+  // printf("rank %d * sendbuf size: %d\n",params->rank,(params->local_nrows * NSPEEDS));
+  // printf("rank %d <-> rank %d <-> rank %d, size: %d, params->local_ncols: %d, params->start_col: %d, params->end_col: %d\n",params->left,params->rank,params->right,params->size, params->local_ncols, params->start_col, params->end_col);
   return EXIT_SUCCESS;
 }
 
@@ -1175,7 +1088,7 @@ int calc_ncols_from_rank(int rank, int size, int tot_colmns)
   return ncols;
 }
 
-int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_colmns){
+int calc_start_column_from_rank(int rank, int local_ncols, int size, int tot_colmns){
   /* determine the index of the starting column in obstacles/collated cells for this rank */
   // int start_col;
   // if (tot_colmns % size == 0){
@@ -1190,6 +1103,10 @@ int calc_start_columns_from_rank(int rank, int local_ncols, int size, int tot_co
   int start_col = ( (tot_colmns % size == 0) || (local_ncols == (tot_colmns/size) + 1) ) ? 
                        (rank * local_ncols) : (rank * local_ncols + tot_colmns%size);
   return start_col;           
+}
+
+int calc_end_column_from_rank(int start_col, int local_ncols){
+  return start_col + local_ncols -1;
 }
 
 int halo_exchange(t_param params, t_speed* restrict cells,
@@ -1298,7 +1215,7 @@ int collate_cells(t_param params, t_speed* restrict cells, t_speed* restrict col
     for (int source=1; source<params.size; source++) {
       /* recieving cells values from all other ranks other than MASTER.. */
       int local_ncols = calc_ncols_from_rank(source, params.size, params.nx);
-      int start_col = calc_start_columns_from_rank(source, local_ncols, params.size, params.nx);
+      int start_col = calc_start_column_from_rank(source, local_ncols, params.size, params.nx);
 
       MPI_Recv(recv_blockbuf, (params.local_nrows * local_ncols * NSPEEDS), MPI_FLOAT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       for (int jj = 0; jj < params.local_nrows; jj++){
