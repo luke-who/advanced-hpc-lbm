@@ -1,9 +1,8 @@
 
-   
+
 # Makefile
 
 EXE=d2q9-bgk
-# EXE=d2q9
 
 #*******Set compiler*******#
 # CC=gcc
@@ -21,8 +20,8 @@ Profile_Generate = -pg
 Unroll_loops = -funroll-all-loops
 #*******Set compiler flags*******#
 # CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -g #-qopenmp #NOALIAS
-# CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg -qopenmp $(REPORT) #$(Profile_Generate) 
-CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg $(REPORT) #$(Profile_Generate) 
+CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg -qopenmp $(REPORT) #$(Profile_Generate) 
+# CFLAGS= -std=c11 -Wall $(OPTMLEVEL) $(TARGET_PLATFORM) -pg $(REPORT) #$(Profile_Generate) 
 
 Intel_advisor = -Wl,-u__poll -Wl,-udlclose -Wl,-udlopen
 
