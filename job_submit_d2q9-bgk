@@ -39,4 +39,4 @@ mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
 
-# advisor-gui advi_results #this opens advisor gui
+# advisor-gui advi_results #this opens up advisor gui
