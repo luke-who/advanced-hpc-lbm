@@ -8,6 +8,7 @@ export OMP_PROC_BIND=close
 # export OMP_PROC_BIND=spread
 export OMP_PLACES=cores
 
+# export I_MPI_DEBUG=4
 # module load languages/gcc/9.3.0
 module load languages/intel/2020-u4 #The Intel compiler is available in the `languages/intel/2020-u4` module. This module puts advixe-cl in your path, so there will be no need to source anything
 # module load intel/2017.01

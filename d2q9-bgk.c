@@ -59,7 +59,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include <omp.h>
+#include <string.h>
+// #include <omp.h>
 #include <mpi.h>
 
 #define NSPEEDS         9
@@ -232,7 +233,10 @@ int main(int argc, char* argv[])
     float tot_u = propa_rebd_collsn_av(params, &cells, &tmp_cells, obstacles);  /* main compute step */
     if(params.rank == MASTER){
       // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;         /* print the value of tot_u on MASTER rank before reduction */
-      MPI_Reduce(MPI_IN_PLACE, &tot_u, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
+      if (params.size > 1){
+        MPI_Reduce(MPI_IN_PLACE, &tot_u, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
+      }
+
       av_vels[tt] = tot_u / (float)params.tot_cells;
       // (tt==0) ? printf("rank: %d \t sum tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;     /* print the value of the sum of tot_u on MASTER rank after reduction */
 
@@ -346,7 +350,8 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
   { 
     /* if the cell is not occupied and
     ** we don't send a negative density */
-    if (!obstacles[ii + jj*(params.local_ncols+2)]
+    if (!obstacles[(jj*params.nx+params.start_col) + ii-1]
+    
         && (cells->speeds_3[ii + jj*(params.local_ncols+2)] - w1) > 0.f
         && (cells->speeds_6[ii + jj*(params.local_ncols+2)] - w2) > 0.f
         && (cells->speeds_7[ii + jj*(params.local_ncols+2)] - w2) > 0.f)
@@ -671,8 +676,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
   /* determine the index of the starting column in obstacles/collated cells for this rank */
   params->start_col = calc_start_column_from_rank(params->rank, params->local_ncols, params->size, params->nx);
-  // params->end_col = calc_end_column_from_rank(params->start_col, params->local_ncols);
-  // printf("rank: %d \t params->start_col: %d\n",params->rank, params->start_col);
+  params->end_col = calc_end_column_from_rank(params->start_col, params->local_ncols);
 
   /*
   ** Allocate memory.
@@ -856,9 +860,16 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   *av_vels_ptr = (float*)_mm_malloc(sizeof(float) * params->maxIters,64);
 
 
-  // printf("params->ny: %d, params->nx: %d\n",params->ny,params->nx);
-  // printf("rank %d * sendbuf size: %d\n",params->rank,(params->local_nrows * NSPEEDS));
-  // printf("rank %d <-> rank %d <-> rank %d, size: %d, params->local_ncols: %d, params->start_col: %d, params->end_col: %d\n",params->left,params->rank,params->right,params->size, params->local_ncols, params->start_col, params->end_col);
+  // if (params->rank==MASTER){
+  //   for (int n = 0; n < params->size; n++){
+  //     (n==0) ? printf("<- rank %d",n) : printf(" <-> rank %d",n);
+  //   }
+  //   printf(" ->\n");
+  // }
+  // // printf("params->ny: %d, params->nx: %d\n",params->ny,params->nx);
+  // printf("rank %d : sendbuf size: %d\n",params->rank,(params->local_nrows * NSPEEDS));
+  // printf("rank: %d/%d, params->local_ncols: %d, params->start_col: %d, params->end_col: %d\n",params->rank, params->size, params->local_ncols, params->start_col, params->end_col);
+  
   return EXIT_SUCCESS;
 }
 
@@ -1198,26 +1209,28 @@ int collate_cells(t_param params, t_speed* restrict cells, t_speed* restrict col
         collated_cells->speeds_8[ii + jj*params.nx] = cells->speeds_8[(ii+1) + jj*(params.local_ncols+2)];   
       }
     }
-    /* then collate the cells value from other ranks */
-    for (int source=1; source<params.size; source++) {
-      /* recieving cells values from all other ranks other than MASTER.. */
-      int local_ncols = calc_ncols_from_rank(source, params.size, params.nx);
-      int start_col = calc_start_column_from_rank(source, local_ncols, params.size, params.nx);
+    if (params.size > 1){
+      /* then collate the cells value from other ranks */
+      for (int source=1; source<params.size; source++) {
+        /* recieving cells values from all other ranks other than MASTER.. */
+        int local_ncols = calc_ncols_from_rank(source, params.size, params.nx);
+        int start_col = calc_start_column_from_rank(source, local_ncols, params.size, params.nx);
 
-      MPI_Recv(recv_blockbuf, (params.local_nrows * local_ncols * NSPEEDS), MPI_FLOAT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      for (int jj = 0; jj < params.local_nrows; jj++){
-        for (int ii = 0; ii < local_ncols; ii++){
-          collated_cells->speeds_0[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 0)];
-          collated_cells->speeds_1[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 1)];
-          collated_cells->speeds_2[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 2)];
-          collated_cells->speeds_3[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 3)];
-          collated_cells->speeds_4[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 4)];
-          collated_cells->speeds_5[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 5)];
-          collated_cells->speeds_6[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 6)];
-          collated_cells->speeds_7[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 7)];
-          collated_cells->speeds_8[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 8)];        
-        }
-      } 
+        MPI_Recv(recv_blockbuf, (params.local_nrows * local_ncols * NSPEEDS), MPI_FLOAT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        for (int jj = 0; jj < params.local_nrows; jj++){
+          for (int ii = 0; ii < local_ncols; ii++){
+            collated_cells->speeds_0[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 0)];
+            collated_cells->speeds_1[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 1)];
+            collated_cells->speeds_2[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 2)];
+            collated_cells->speeds_3[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 3)];
+            collated_cells->speeds_4[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 4)];
+            collated_cells->speeds_5[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 5)];
+            collated_cells->speeds_6[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 6)];
+            collated_cells->speeds_7[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 7)];
+            collated_cells->speeds_8[ii + start_col + jj*params.nx] = recv_blockbuf[ii + jj*(local_ncols) + (params.local_nrows * local_ncols * 8)];        
+          }
+        } 
+      }
     }    
   }
   return EXIT_SUCCESS;
