@@ -330,7 +330,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
 
   /* modify the 2nd row of the grid */
   const int jj = params.ny - 2;
-
+ 
   __assume_aligned(cells->speeds_0, 64);
   __assume_aligned(cells->speeds_1, 64);
   __assume_aligned(cells->speeds_2, 64);
