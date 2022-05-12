@@ -19,20 +19,32 @@ echo Slurm job ID is $SLURM_JOB_ID
 echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
+#------------------------------------#
+#! Run the executable with OpenMP
 
-#! Run the executable with mpi
-
-mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+# mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # mpirun -np 112 ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 # mpirun -np 112 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
-# mpirun -print-rank-map -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+
+#------------------------------------#
+#! Run the executable with MPI
+
+# mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+# mpirun -np 112 ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+# mpirun -np 112 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+
+mpirun -print-rank-map -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # mpirun -np 4 -genv I_MPI_PIN=1 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # mpirun -np 4 -ppn 2 -bind-to -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 
 # srun --mpi=pmi2 --ntasks=4 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # srun --mpi=pmi2 -n 4 -l ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # srun --mpi=pmi2 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+
+
+#------------------------------------#
+#! Colllect the results on Intel Advisor
 
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_256x256.params obstacles_256x256.dat
