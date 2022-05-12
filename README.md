@@ -1,4 +1,7 @@
 # HPC Coursework
+-------------------------------------------------------------------------------------------------------------------------------------
+[![OpenMP](https://img.shields.io/badge/OpemMP-v4.0-blue?&logo=Intel)](https://www.openmp.org/specifications/)
+[![Intel MPI](https://img.shields.io/badge/MPI-2019%20Update%209-informational?&logo=intel)](https://www.intel.com/content/www/us/en/developer/articles/release-notes/mpi-library-release-notes-linux.html)
 
 Base coursework for the Advanced High Performance Computing class.
 
