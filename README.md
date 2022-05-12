@@ -63,22 +63,25 @@ eg:
 
 ## Using MPI
 
+### Use either `mpirun` or `srun` to run the executable `d2q9-bgk`, see examples in [job_submit_d2q9-bgk](job_submit_d2q9-bgk)
 
 ## Checking results
 
+Check the `av_vels` & `final_state` result pass the test:
 An automated result checking function is provided that requires you to load a particular Python module (`module load languages/anaconda2/5.0.1`). Running `make check` will check the output file (average velocities and final state) against some reference results. By default, it should look something like this:
+```
+[ab12345@bc4login3 advanced-hpc-lbm]$ make check
+python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 3.370462974994E-02
+Biggest difference (at step 39619) : -1.788416140000E-06
+  1.317970920354E-02 vs. 1.317792078740E-02 = -0.014%
 
-    $ make check
-    python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
-    Total difference in av_vels : 5.270812566515E-11
-    Biggest difference (at step 1219) : 1.000241556248E-14
-      1.595203170657E-02 vs. 1.595203170658E-02 = 6.3e-11%
+Total difference in final_state : 1.069222150899E-02
+Biggest difference (at coord (3,5)) : 7.545896299962E-07
+  3.334492444992E-02 vs. 3.334567903955E-02 = 0.0023%
 
-    Total difference in final_state : 5.962977334129E-11
-    Biggest difference (at coord (6,2)) : 1.000588500943E-14
-      3.329122639178E-02 vs. 3.329122639179E-02 = 3e-11%
-
-    Both tests passed!
+Both tests passed!
+```
 
 This script takes both the reference results and the results to check (both average velocities and final state). This is also specified in the makefile and can be changed like the other options:
 
@@ -143,6 +146,26 @@ Reynolds number:		9.751927375793E+00
 Elapsed time:			38.387577 (s)
 Elapsed user CPU time:		38.388736 (s)
 Elapsed system CPU time:	0.003000 (s)
+```
+MPI Running with 112 cores:
+```
+[ab12345@bc4login3 advanced-hpc-lbm]$ mpirun -print-rank-map -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 00:37:29 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10338478
+This job runs on the following machines:
+compute[106-109]
+(compute106:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27)
+(compute107:28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55)
+(compute108:56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83)
+(compute109:84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111)
+==done==
+Reynolds number:                9.764906883240E+00
+Elapsed Init time:                      0.000307 (s)
+Elapsed Compute time:                   0.837770 (s)
+Elapsed Collate time:                   0.001810 (s)
+Elapsed Total time:                     0.839887 (s)
 ```
 
 - 128x256
