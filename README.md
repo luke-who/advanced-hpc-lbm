@@ -95,8 +95,6 @@ eg:
 
 see more examples in [job_submit_d2q9-bgk](job_submit_d2q9-bgk)
 
-## Using OpenMP
-
 
 ## Checking results
 
