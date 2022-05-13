@@ -8,22 +8,6 @@ Coursework for the Advanced High Performance Computing class.
 * Source code is in the [d2q9-bgk.c](d2q9-bgk.c) file
 * Results checking scripts are in the [check/](check/) directory
 
-## Calculating % of achieved memory bandwidth
-The formula for calculating Bandwidth of the 256x256 input is as follows:
-
-```math
-Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Compute\ Time}
-```
-
-```math
-    = \frac{256*256 * 9 (speeds) * 4 (bytes\_per\_float) * 2(cells+tmp\_cells) * 2(read+write) * 80000(timestep)}{35.7s}
-```
-
-```math
-    = \frac{2.36(MiBytes) * 4 * 80000}{35.7s} = 21.25GB/s
-```
- The maximum achievable L2 memory bandwidth is 84.88 GB/s, from here we can calculate the fraction of STREAM bandwidth = $`\frac{21.25}{84.88} = 25\%`$.
-
 ## Compiling and running
 
 ### Set env variables
