@@ -83,7 +83,6 @@ see more examples in [job_submit_d2q9-bgk](job_submit_d2q9-bgk)
 
 ## Checking results
 
-Check the `av_vels` & `final_state` result pass the test:
 An automated result checking function is provided that requires you to load a particular Python module (`module load languages/anaconda2/5.0.1`). Running `make check` will check the output file (average velocities and final state) against some reference results. By default, it should look something like this:
 ```
 [ab12345@bc4login3 advanced-hpc-lbm]$ make check
@@ -162,19 +161,79 @@ If the submission checking script prints any errors, you should try to address t
 Note that `check_submission.sh` does _not_ run your code, and so you _cannot_ verify that the results produced by your application validate just by running this script. You should check the correctness of your results separately, e.g. using `make check`.
 
 
-# Serial output for sample inputs
-Run times were taken on a Phase 4 node using the Intel (icc) compiler and certain compiler flags as found in the Makefile:
+# Serial, OpenMP & MPI output for sample inputs
+
+## Serial
+Single core, run times were taken on a Phase 4 node using the base (gcc) compiler and base compiler flags as found in the Makefile:
 
 - 128x128
 ```
-./d2q9-bgk  input_128x128.params obstacles_128x128.dat
+$ ./d2q9-bgk  input_128x128.params obstacles_128x128.dat
 ==done==
 Reynolds number:		9.751927375793E+00
 Elapsed time:			38.387577 (s)
 Elapsed user CPU time:		38.388736 (s)
 Elapsed system CPU time:	0.003000 (s)
 ```
-MPI Running with 112 cores:
+
+- 128x256
+```
+$ ./d2q9-bgk  input_128x256.params obstacles_128x256.dat
+==done==
+Reynolds number:		3.715003967285E+01
+Elapsed time:			77.446019 (s)
+Elapsed user CPU time:		77.450619 (s)
+Elapsed system CPU time:	0.003000 (s)
+```
+
+- 256x256
+```
+$ ./d2q9-bgk  input_256x256.params obstacles_256x256.dat
+==done==
+Reynolds number:		1.005141162872E+01
+Elapsed time:			309.040200 (s)
+Elapsed user CPU time:		309.061111 (s)
+Elapsed system CPU time:	0.004000 (s)
+```
+
+- 1024x1024
+```
+$ ./d2q9-bgk  input_1024x1024.params obstacles_1024x1024.dat
+==done==
+Reynolds number:		3.375851392746E+00
+Elapsed time:			1287.501875 (s)
+Elapsed user CPU time:		1287.568113 (s)
+Elapsed system CPU time:	0.029001 (s)
+```
+## OpemMP
+
+OpenMP Running with 28 cores, run times were taken on a Phase 4 node using the Intel (icc) compiler and certain compiler flags as found in the Makefile:
+
+- 128x128
+```
+
+```
+
+- 128x256
+```
+
+```
+
+- 256x256
+```
+
+```
+
+- 1024x1024
+```
+
+```
+
+## MPI
+
+MPI Running with 112 cores, run times were taken on a Phase 4 node using the Intel (icc) compiler and certain compiler flags as found in the Makefile:
+
+- 128x128
 ```
 [ab12345@bc4login3 advanced-hpc-lbm]$ mpirun -print-rank-map -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 Running on host compute106.bc4.acrc.priv
@@ -193,36 +252,101 @@ Elapsed Init time:                      0.000307 (s)
 Elapsed Compute time:                   0.837770 (s)
 Elapsed Collate time:                   0.001810 (s)
 Elapsed Total time:                     0.839887 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 3.370462974994E-02
+Biggest difference (at step 39619) : -1.788416140000E-06
+  1.317970920354E-02 vs. 1.317792078740E-02 = -0.014%
+
+Total difference in final_state : 1.069222150899E-02
+Biggest difference (at coord (3,5)) : 7.545896299962E-07
+  3.334492444992E-02 vs. 3.334567903955E-02 = 0.0023%
+
+Both tests passed!
 ```
 
 - 128x256
 ```
-./d2q9-bgk  input_128x256.params obstacles_128x256.dat
+$ mpirun -np 112 ./d2q9-bgk input_128x256.params obstacles_128x256.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 14:47:30 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339316
+This job runs on the following machines:
+compute[106-109]
 ==done==
-Reynolds number:		3.715003967285E+01
-Elapsed time:			77.446019 (s)
-Elapsed user CPU time:		77.450619 (s)
-Elapsed system CPU time:	0.003000 (s)
+Reynolds number:                3.718533325195E+01
+Elapsed Init time:                      0.014253 (s)
+Elapsed Compute time:                   1.394733 (s)
+Elapsed Collate time:                   0.002658 (s)
+Elapsed Total time:                     1.411644 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x256.av_vels.dat --ref-final-state-file=check/128x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 8.179887892935E-03
+Biggest difference (at step 68) : -3.011414789994E-08
+  5.813845782541E-04 vs. 5.813544641062E-04 = -0.0052%
+
+Total difference in final_state : 4.311647071313E-02
+Biggest difference (at coord (76,165)) : 1.389606820001E-06
+  3.316890075803E-02 vs. 3.317029036485E-02 = 0.0042%
+
+Both tests passed!
 ```
 
 - 256x256
 ```
-./d2q9-bgk  input_256x256.params obstacles_256x256.dat
+$ mpirun -np 112 ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 14:39:29 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339310
+This job runs on the following machines:
+compute[106-109]
 ==done==
-Reynolds number:		1.005141162872E+01
-Elapsed time:			309.040200 (s)
-Elapsed user CPU time:		309.061111 (s)
-Elapsed system CPU time:	0.004000 (s)
+Reynolds number:                1.008056449890E+01
+Elapsed Init time:                      0.000864 (s)
+Elapsed Compute time:                   3.305648 (s)
+Elapsed Collate time:                   0.005390 (s)
+Elapsed Total time:                     3.311902 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/256x256.av_vels.dat --ref-final-state-file=check/256x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 1.740173914993E-01
+Biggest difference (at step 79520) : -4.954269670000E-06
+  1.360202953219E-02 vs. 1.359707526252E-02 = -0.036%
+
+Total difference in final_state : 8.806575322403E-02
+Biggest difference (at coord (138,159)) : 1.448792590002E-06
+  3.330772370100E-02 vs. 3.330917249359E-02 = 0.0043%
+
+Both tests passed!
 ```
 
 - 1024x1024
 ```
-./d2q9-bgk  input_1024x1024.params obstacles_1024x1024.dat
+$ mpirun -np 112 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 14:42:47 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339311
+This job runs on the following machines:
+compute[106-109]
 ==done==
-Reynolds number:		3.375851392746E+00
-Elapsed time:			1287.501875 (s)
-Elapsed user CPU time:		1287.568113 (s)
-Elapsed system CPU time:	0.029001 (s)
+Reynolds number:                3.377239465714E+00
+Elapsed Init time:                      0.009041 (s)
+Elapsed Compute time:                   6.620043 (s)
+Elapsed Collate time:                   0.056015 (s)
+Elapsed Total time:                     6.685099 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/1024x1024.av_vels.dat --ref-final-state-file=check/1024x1024.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 3.487499986143E-03
+Biggest difference (at step 326) : -2.434364265000E-07
+  3.626788966358E-04 vs. 3.624354602093E-04 = -0.067%
+
+Total difference in final_state : 9.898915688519E-01
+Biggest difference (at coord (1,1021)) : 1.978754159998E-06
+  3.326061367989E-02 vs. 3.326259243405E-02 = 0.0059%
+
+Both tests passed!
 ```
 
 # Visualisation
