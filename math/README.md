@@ -1,5 +1,7 @@
 
 # Calculating % of achieved memory bandwidth
+To display the below inline math correctly, make sure to have the [xhub](https://github.com/nschloe/xhub) chrome extension as github does not support LaTex Math yet.
+
 The formula for calculating Bandwidth of the 256x256 input is as follows:
 
 ```math
