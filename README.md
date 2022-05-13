@@ -136,7 +136,7 @@ Note that `check_submission.sh` does _not_ run your code, and so you _cannot_ ve
 
 
 # Serial output for sample inputs
-Run times were taken on a Phase 4 node using the base (gcc) compiler and base compiler flags as found in the Makefile:
+Run times were taken on a Phase 4 node using the Intel (icc) compiler and certain compiler flags as found in the Makefile:
 
 - 128x128
 ```
