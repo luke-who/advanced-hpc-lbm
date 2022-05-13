@@ -83,7 +83,6 @@ see more examples in [job_submit_d2q9-bgk](job_submit_d2q9-bgk)
 
 ## Checking results
 
-Check the `av_vels` & `final_state` result pass the test:
 An automated result checking function is provided that requires you to load a particular Python module (`module load languages/anaconda2/5.0.1`). Running `make check` will check the output file (average velocities and final state) against some reference results. By default, it should look something like this:
 ```
 [ab12345@bc4login3 advanced-hpc-lbm]$ make check
