@@ -54,12 +54,10 @@ For OpenMP to set the number of cores to use, choose one of the following method
     or 
 
         #SBATCH --ntasks-per-node 28
+2. Set Environment variables `OMP_NUM_THREADS=28` in environment
+3. API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
 
-2. API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
-
-3. Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
-
-4. Set Environment variables `OMP_NUM_THREADS=28` in environment
+4. Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
 
 ***Note any one of these methods above will override another when used together, depending on the order of execution***
 
