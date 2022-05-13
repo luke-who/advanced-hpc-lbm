@@ -32,7 +32,7 @@ FINAL_STATE_FILE=./final_state.dat
 AV_VELS_FILE=./av_vels.dat
 
 DIM=128
-# DIM=256
+# DIM2=256
 # DIM=1024
 #*******Set the referenced final state & av_velocity files*******#
 REF_FINAL_STATE_FILE=check/$(DIM)x$(DIM).final_state.dat
