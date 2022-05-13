@@ -5,8 +5,8 @@
 -------------------------------------------------------------------------------------------------------------------------------------
 Coursework for the Advanced High Performance Computing class.
 
-* Source code is in the `d2q9-bgk.c` file
-* Results checking scripts are in the `check/` directory
+* Source code is in the [d2q9-bgk.c](d2q9-bgk.c) file
+* Results checking scripts are in the [check/](check/) directory
 
 ## Calculating % of achieved memory bandwidth
 The formula for calculating Bandwidth of the 256x256 input is as follows:
@@ -26,7 +26,14 @@ Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Co
 
 ## Compiling and running
 
-To compile type `make`. Editing the values for `CC` and `CFLAGS` in the Makefile can be used to enable different compiler options or use a different compiler. These can also be passed on the command line:
+### Set env variables
+To set environment variables for OpenMP and MPI,
+    
+    source env.sh
+
+see examples in [env.sh](env.sh)
+
+To compile type `make`. Editing the values for `CC` and `CFLAGS` in the [Makefile](Makefile) can be used to enable different compiler options or use a different compiler. These can also be passed on the command line:
 
     $ make CFLAGS="-O3 -fopenmp -DDEBUG"
 
@@ -38,13 +45,15 @@ Input parameter and obstacle files are all specified on the command line of the 
 
 ### Serial & OpenMP Usage:
 
-For OpenMP to set the number of cores to use, choose one of the following methods:
+For OpenMP to set the number of cores to use, choose one of the following methods(note SLURM calls a core a "cpu").:
 
 1. Set it in the SLURM job script
 
-    #SBATCH --ntasks-per-node 1
-    #SBATCH --cpus-per-task 28
-, (note SLURM calls a core a "cpu"). or simply `#SBATCH --ntasks-per-node 28` to use all 28 cores
+        #SBATCH --ntasks-per-node 1
+        #SBATCH --cpus-per-task 28
+    or 
+
+        #SBATCH --ntasks-per-node 28
 
 2. API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
 
@@ -62,13 +71,23 @@ eg:
     $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 
 ### MPI Usage:
-Use either `mpirun` to run the executable `d2q9-bgk`:
+
+For MPI to set the number of cores to use:
+
+Set it in the SLURM job script, change the number of cores with `--nodes` & `--ntasks-per-node` accordingly. On BC4 each node has 28 cores
+
+    #SBATCH --nodes 4
+    #SBATCH --ntasks-per-node 28
+    #SBATCH --cpus-per-task=1
+    
+Use `mpirun` to run the executable `d2q9-bgk`:
 
     $ mpirun -np <num_cores> ./d2q9-bgk <paramfile> <obstaclefile>
 Alternatively use `srun` in SLURM:
     
     $ srun --mpi=pmi2 -n <num_cores> ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 eg:
+
 `mpirun`:
     
     $ mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
