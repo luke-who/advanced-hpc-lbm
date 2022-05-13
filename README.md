@@ -210,22 +210,114 @@ OpenMP Running with 28 cores, run times were taken on a Phase 4 node using the I
 
 - 128x128
 ```
+$ ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:28:17 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339520
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                9.762724876404E+00
+Elapsed Init time:                      0.004741 (s)
+Elapsed Compute time:                   0.700110 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     0.704851 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 2.570786627699E-02
+Biggest difference (at step 39836) : 1.315839970002E-06
+  1.318511273712E-02 vs. 1.318642857709E-02 = 0.01%
 
+Total difference in final_state : 1.904450862228E-02
+Biggest difference (at coord (1,68)) : 1.275250619999E-06
+  3.333691135049E-02 vs. 3.333818660111E-02 = 0.0038%
+
+Both tests passed!
 ```
 
 - 128x256
 ```
+$ ./d2q9-bgk input_128x256.params obstacles_128x256.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:30:47 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339525
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                3.717643356323E+01
+Elapsed Init time:                      0.005994 (s)
+Elapsed Compute time:                   0.893883 (s)
+Elapsed Collate time:                   0.000001 (s)
+Elapsed Total time:                     0.899878 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x256.av_vels.dat --ref-final-state-file=check/128x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 2.636825080150E-01
+Biggest difference (at step 39997) : 1.139336877000E-05
+  5.023831874132E-02 vs. 5.024971211009E-02 = 0.023%
 
+Total difference in final_state : 4.709360181114E-02
+Biggest difference (at coord (124,247)) : 1.728844270001E-06
+  3.426177054644E-02 vs. 3.426349939071E-02 = 0.005%
+
+Both tests passed!
 ```
 
 - 256x256
 ```
+$ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:32:16 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339537
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                1.007389545441E+01
+Elapsed Init time:                      0.005000 (s)
+Elapsed Compute time:                   2.656565 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     2.661565 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/256x256.av_vels.dat --ref-final-state-file=check/256x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 1.301233610291E-01
+Biggest difference (at step 79998) : 4.253021149999E-06
+  1.361330319196E-02 vs. 1.361755621311E-02 = 0.031%
 
+Total difference in final_state : 1.651646145602E-01
+Biggest difference (at coord (236,238)) : 2.668211300003E-06
+  3.337331861258E-02 vs. 3.337598682388E-02 = 0.008%
+
+Both tests passed!
 ```
 
 - 1024x1024
 ```
+$ ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:36:16 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339552
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                3.377147436142E+00
+Elapsed Init time:                      0.017536 (s)
+Elapsed Compute time:                   15.440940 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     15.458476 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/1024x1024.av_vels.dat --ref-final-state-file=check/1024x1024.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 4.106129097791E-03
+Biggest difference (at step 465) : -3.381835082000E-07
+  5.234085256234E-04 vs. 5.230703421152E-04 = -0.065%
 
+Total difference in final_state : 1.215947967812E+00
+Biggest difference (at coord (1,1022)) : 2.487411640002E-06
+  3.316169232130E-02 vs. 3.316417973294E-02 = 0.0075%
+
+Both tests passed!
 ```
 
 ## MPI
