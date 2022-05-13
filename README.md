@@ -3,7 +3,7 @@
 [![OpenMP](https://img.shields.io/badge/OpemMP-v4.0-blue?&logo=Intel)](https://www.openmp.org/specifications/)
 [![Intel MPI](https://img.shields.io/badge/MPI-2019%20Update%209-informational?&logo=intel)](https://www.intel.com/content/www/us/en/developer/articles/release-notes/mpi-library-release-notes-linux.html)
 -------------------------------------------------------------------------------------------------------------------------------------
-Base coursework for the Advanced High Performance Computing class.
+Coursework for the Advanced High Performance Computing class.
 
 * Source code is in the `d2q9-bgk.c` file
 * Results checking scripts are in the `check/` directory
@@ -33,36 +33,53 @@ To compile type `make`. Editing the values for `CC` and `CFLAGS` in the Makefile
 Run all three make arguments(all check clean)
 
     make .PHONY
-    
+
 Input parameter and obstacle files are all specified on the command line of the `d2q9-bgk` executable.
 
-Usage:
+### Serial & OpenMP Usage:
 
-    $ ./d2q9-bgk <paramfile> <obstaclefile>
-eg:
+For OpenMP to set the number of cores to use, choose one of the following methods:
 
-    $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
-## Using OpenMP
-
-### To set the number of cores to use, choose one of the methods:
-
-1.Set it in the SLURM job script
+1. Set it in the SLURM job script
 
     #SBATCH --ntasks-per-node 1
     #SBATCH --cpus-per-task 28
 , (note SLURM calls a core a "cpu"). or simply `#SBATCH --ntasks-per-node 28` to use all 28 cores
 
-2.API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
+2. API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
 
-3.Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
+3. Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
 
-4.Set Environment variables `OMP_NUM_THREADS=28` in environment
+4. Set Environment variables `OMP_NUM_THREADS=28` in environment
 
-***Note any one of these methods will override another when used together, depending on the order of execution***
+***Note any one of these methods above will override another when used together, depending on the order of execution***
 
-## Using MPI
+Then run the executable `d2q9-bgk` with input parameter and obstacle files:
 
-### Use either `mpirun` or `srun` to run the executable `d2q9-bgk`, see examples in [job_submit_d2q9-bgk](job_submit_d2q9-bgk)
+    $ ./d2q9-bgk <paramfile> <obstaclefile>
+eg:
+
+    $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+
+### MPI Usage:
+Use either `mpirun` to run the executable `d2q9-bgk`:
+
+    $ mpirun -np <num_cores> ./d2q9-bgk <paramfile> <obstaclefile>
+Alternatively use `srun` in SLURM:
+    
+    $ srun --mpi=pmi2 -n <num_cores> ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+eg:
+`mpirun`:
+    
+    $ mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+`srun`:
+    
+    $ srun --mpi=pmi2 -n 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+
+see more examples in [job_submit_d2q9-bgk](job_submit_d2q9-bgk)
+
+## Using OpenMP
+
 
 ## Checking results
 
@@ -101,17 +118,28 @@ All the options for this script can be examined by passing the --help flag to it
 When you wish to submit a job to the queuing system on BlueCrystal, you should use the job submission script provided.
 
     $ sbatch job_submit_d2q9-bgk
-
+    
 This will dispatch a job to the queue, which you can monitor using the
 `squeue` command:
 
     $ squeue -u $USER
 
+Or use the one below to submit & monitor in one step, watch it run in real time:
+
+    $ make run
+ 
+Cancel Jobs: 
+    
+    $ make cancel
+    
 When finished, the output from your job will be in a file called
 `d2q9-bgk.out`:
 
     $ less d2q9-bgk.out
+Alternatively: 
 
+    $ make cat
+    
 If you wish to run a different set of input parameters, you should
 modify `job_submit_d2q9-bgk` to update the value assigned to `options`.
 
