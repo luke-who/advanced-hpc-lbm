@@ -1,9 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name d2q9-bgk
-#SBATCH --nodes 4
+#SBATCH --nodes 1
 #SBATCH --ntasks-per-node 28
-#SBATCH --cpus-per-task=1
 #SBATCH --time 00:15:00
 #SBATCH --partition veryshort
 #SBATCH --reservation=COSC026662
@@ -19,19 +18,21 @@ echo Slurm job ID is $SLURM_JOB_ID
 echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
+# source env.sh
 #######################################
 ### Run the executable with OpenMP ####
 #######################################
 # ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+# ./d2q9-bgk input_128x256.params obstacles_128x256.dat
 # ./d2q9-bgk input_256x256.params obstacles_256x256.dat
-# ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
 
 ##################################
 ## Run the executable with MPI ###
 ##################################
 #------- mpirun -------#
-mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+# mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 # mpirun -np 112 ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 # mpirun -np 112 ./d2q9-bgk input_128x256.params obstacles_128x256.dat
 # mpirun -np 112 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
