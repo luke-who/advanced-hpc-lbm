@@ -5,28 +5,19 @@
 -------------------------------------------------------------------------------------------------------------------------------------
 Coursework for the Advanced High Performance Computing class.
 
-* Source code is in the `d2q9-bgk.c` file
-* Results checking scripts are in the `check/` directory
-
-## Calculating % of achieved memory bandwidth
-The formula for calculating Bandwidth of the 256x256 input is as follows:
-
-```math
-Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Compute\ Time}
-```
-
-```math
-    = \frac{256*256 * 9 (speeds) * 4 (bytes\_per\_float) * 2(cells+tmp\_cells) * 2(read+write) * 80000(timestep)}{35.7s}
-```
-
-```math
-    = \frac{2.36(MiBytes) * 4 * 80000}{35.7s} = 21.25GB/s
-```
- The maximum achievable L2 memory bandwidth is 84.88 GB/s, from here we can calculate the fraction of STREAM bandwidth = $`\frac{21.25}{84.88} = 25\%`$.
+* Source code is in the [d2q9-bgk.c](d2q9-bgk.c) file
+* Results checking scripts are in the [check/](check/) directory
 
 ## Compiling and running
 
-To compile type `make`. Editing the values for `CC` and `CFLAGS` in the Makefile can be used to enable different compiler options or use a different compiler. These can also be passed on the command line:
+### Set env variables
+To set environment variables for OpenMP and MPI,
+    
+    source env.sh
+
+see examples in [env.sh](env.sh)
+
+To compile type `make`. Editing the values for `CC` and `CFLAGS` in the [Makefile](Makefile) can be used to enable different compiler options or use a different compiler. These can also be passed on the command line:
 
     $ make CFLAGS="-O3 -fopenmp -DDEBUG"
 
@@ -38,19 +29,19 @@ Input parameter and obstacle files are all specified on the command line of the 
 
 ### Serial & OpenMP Usage:
 
-For OpenMP to set the number of cores to use, choose one of the following methods:
+For OpenMP to set the number of cores to use, choose one of the following methods(note SLURM calls a core a "cpu").:
 
 1. Set it in the SLURM job script
 
-    #SBATCH --ntasks-per-node 1
-    #SBATCH --cpus-per-task 28
-, (note SLURM calls a core a "cpu"). or simply `#SBATCH --ntasks-per-node 28` to use all 28 cores
+        #SBATCH --ntasks-per-node 1
+        #SBATCH --cpus-per-task 28
+    or 
 
-2. API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
+        #SBATCH --ntasks-per-node 28
+2. Set Environment variables `OMP_NUM_THREADS=28` in environment
+3. API calls `#include <omp.h>` and use `omp_set_num_threads(num_threads);` function in your code right before the upcoming parallel regions `#pragma omp parallel`
 
-3. Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
-
-4. Set Environment variables `OMP_NUM_THREADS=28` in environment
+4. Use Clauses `#pragma omp parallel num_threads(28)` to use all 28 cores
 
 ***Note any one of these methods above will override another when used together, depending on the order of execution***
 
@@ -62,13 +53,23 @@ eg:
     $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 
 ### MPI Usage:
-Use either `mpirun` to run the executable `d2q9-bgk`:
+
+For MPI to set the number of cores to use:
+
+Set it in the SLURM job script, change the number of cores with `--nodes` & `--ntasks-per-node` accordingly. On BC4 each node has 28 cores
+
+    #SBATCH --nodes 4
+    #SBATCH --ntasks-per-node 28
+    #SBATCH --cpus-per-task=1
+    
+Use `mpirun` to run the executable `d2q9-bgk`:
 
     $ mpirun -np <num_cores> ./d2q9-bgk <paramfile> <obstaclefile>
 Alternatively use `srun` in SLURM:
     
     $ srun --mpi=pmi2 -n <num_cores> ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 eg:
+
 `mpirun`:
     
     $ mpirun -np 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
@@ -77,8 +78,6 @@ eg:
     $ srun --mpi=pmi2 -n 112 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 
 see more examples in [job_submit_d2q9-bgk](job_submit_d2q9-bgk)
-
-## Using OpenMP
 
 
 ## Checking results
@@ -169,41 +168,112 @@ Single core, run times were taken on a Phase 4 node using the base (gcc) compile
 - 128x128
 ```
 $ ./d2q9-bgk  input_128x128.params obstacles_128x128.dat
+Running on host compute216.bc4.acrc.priv
+Time is Fri May 13 17:16:46 BST 2022
+Directory is /user/home/az16408/test/advanced-hpc-lbm
+Slurm job ID is 10339799
+This job runs on the following machines:
+compute216
 ==done==
-Reynolds number:		9.751927375793E+00
-Elapsed time:			38.387577 (s)
-Elapsed user CPU time:		38.388736 (s)
-Elapsed system CPU time:	0.003000 (s)
+Reynolds number:                9.751927375793E+00
+Elapsed Init time:                      0.022443 (s)
+Elapsed Compute time:                   32.704247 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     32.726690 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 2.827927978413E-01
+Biggest difference (at step 39585) : 1.577149412000E-05
+  1.316130347550E-02 vs. 1.317707496962E-02 = 0.12%
+
+Total difference in final_state : 3.568685083738E-01
+Biggest difference (at coord (2,1)) : -2.278018117000E-05
+  3.336845338345E-02 vs. 3.334567320228E-02 = -0.068%
+
+Both tests passed!
 ```
 
 - 128x256
 ```
 $ ./d2q9-bgk  input_128x256.params obstacles_128x256.dat
+Running on host compute216.bc4.acrc.priv
+Time is Fri May 13 17:20:16 BST 2022
+Directory is /user/home/az16408/test/advanced-hpc-lbm
+Slurm job ID is 10339800
+This job runs on the following machines:
+compute216
 ==done==
-Reynolds number:		3.715003967285E+01
-Elapsed time:			77.446019 (s)
-Elapsed user CPU time:		77.450619 (s)
-Elapsed system CPU time:	0.003000 (s)
+Reynolds number:                3.715003967285E+01
+Elapsed Init time:                      0.017515 (s)
+Elapsed Compute time:                   65.977835 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     65.995350 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x256.av_vels.dat --ref-final-state-file=check/128x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 9.965223423084E-01
+Biggest difference (at step 39947) : 4.716276478000E-05
+  5.020119994879E-02 vs. 5.024836271357E-02 = 0.094%
+
+Total difference in final_state : 7.125052287816E-01
+Biggest difference (at coord (63,195)) : -2.267960406000E-05
+  3.306340426207E-02 vs. 3.304072465801E-02 = -0.069%
+
+Both tests passed!
 ```
 
 - 256x256
 ```
 $ ./d2q9-bgk  input_256x256.params obstacles_256x256.dat
+Running on host compute216.bc4.acrc.priv
+Time is Fri May 13 17:23:42 BST 2022
+Directory is /user/home/az16408/test/advanced-hpc-lbm
+Slurm job ID is 10339806
+This job runs on the following machines:
+compute216
 ==done==
-Reynolds number:		1.005141162872E+01
-Elapsed time:			309.040200 (s)
-Elapsed user CPU time:		309.061111 (s)
-Elapsed system CPU time:	0.004000 (s)
+Reynolds number:                1.005141162872E+01
+Elapsed Init time:                      0.044593 (s)
+Elapsed Compute time:                   263.376447 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     263.421040 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/256x256.av_vels.dat --ref-final-state-file=check/256x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 1.202668822577E+00
+Biggest difference (at step 79565) : 3.632341291000E-05
+  1.356221549213E-02 vs. 1.359853890504E-02 = 0.27%
+
+Total difference in final_state : 2.892388453244E+00
+Biggest difference (at coord (1,254)) : -4.513092096000E-05
+  3.327679634094E-02 vs. 3.323166541998E-02 = -0.14%
+
+Both tests passed!
 ```
 
 - 1024x1024
 ```
 $ ./d2q9-bgk  input_1024x1024.params obstacles_1024x1024.dat
+Running on host compute216.bc4.acrc.priv
+Time is Fri May 13 17:50:17 BST 2022
+Directory is /user/home/az16408/test/advanced-hpc-lbm
+Slurm job ID is 10339835
+This job runs on the following machines:
+compute216
 ==done==
-Reynolds number:		3.375851392746E+00
-Elapsed time:			1287.501875 (s)
-Elapsed user CPU time:		1287.568113 (s)
-Elapsed system CPU time:	0.029001 (s)
+Reynolds number:                3.375851392746E+00
+Elapsed Init time:                      0.012870 (s)
+Elapsed Compute time:                   1097.896161 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     1097.909031 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/1024x1024.av_vels.dat --ref-final-state-file=check/1024x1024.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 1.899197416650E-02
+Biggest difference (at step 19377) : 3.148519863000E-06
+  4.391666036099E-03 vs. 4.394814555962E-03 = 0.072%
+
+Total difference in final_state : 1.110526151157E+01
+Biggest difference (at coord (340,6)) : -1.225732970000E-05
+  3.337003663182E-02 vs. 3.335777930212E-02 = -0.037%
+
 ```
 ## OpemMP
 
@@ -211,22 +281,114 @@ OpenMP Running with 28 cores, run times were taken on a Phase 4 node using the I
 
 - 128x128
 ```
+$ ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:28:17 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339520
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                9.762724876404E+00
+Elapsed Init time:                      0.004741 (s)
+Elapsed Compute time:                   0.700110 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     0.704851 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 2.570786627699E-02
+Biggest difference (at step 39836) : 1.315839970002E-06
+  1.318511273712E-02 vs. 1.318642857709E-02 = 0.01%
 
+Total difference in final_state : 1.904450862228E-02
+Biggest difference (at coord (1,68)) : 1.275250619999E-06
+  3.333691135049E-02 vs. 3.333818660111E-02 = 0.0038%
+
+Both tests passed!
 ```
 
 - 128x256
 ```
+$ ./d2q9-bgk input_128x256.params obstacles_128x256.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:30:47 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339525
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                3.717643356323E+01
+Elapsed Init time:                      0.005994 (s)
+Elapsed Compute time:                   0.893883 (s)
+Elapsed Collate time:                   0.000001 (s)
+Elapsed Total time:                     0.899878 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/128x256.av_vels.dat --ref-final-state-file=check/128x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 2.636825080150E-01
+Biggest difference (at step 39997) : 1.139336877000E-05
+  5.023831874132E-02 vs. 5.024971211009E-02 = 0.023%
 
+Total difference in final_state : 4.709360181114E-02
+Biggest difference (at coord (124,247)) : 1.728844270001E-06
+  3.426177054644E-02 vs. 3.426349939071E-02 = 0.005%
+
+Both tests passed!
 ```
 
 - 256x256
 ```
+$ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:32:16 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339537
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                1.007389545441E+01
+Elapsed Init time:                      0.005000 (s)
+Elapsed Compute time:                   2.656565 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     2.661565 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/256x256.av_vels.dat --ref-final-state-file=check/256x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 1.301233610291E-01
+Biggest difference (at step 79998) : 4.253021149999E-06
+  1.361330319196E-02 vs. 1.361755621311E-02 = 0.031%
 
+Total difference in final_state : 1.651646145602E-01
+Biggest difference (at coord (236,238)) : 2.668211300003E-06
+  3.337331861258E-02 vs. 3.337598682388E-02 = 0.008%
+
+Both tests passed!
 ```
 
 - 1024x1024
 ```
+$ ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+Running on host compute106.bc4.acrc.priv
+Time is Fri May 13 16:36:16 BST 2022
+Directory is /user/home/az16408/advanced-hpc-lbm
+Slurm job ID is 10339552
+This job runs on the following machines:
+compute[106-109]
+==done==
+Reynolds number:                3.377147436142E+00
+Elapsed Init time:                      0.017536 (s)
+Elapsed Compute time:                   15.440940 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     15.458476 (s)
+$ make check
+python check/check.py --ref-av-vels-file=check/1024x1024.av_vels.dat --ref-final-state-file=check/1024x1024.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
+Total difference in av_vels : 4.106129097791E-03
+Biggest difference (at step 465) : -3.381835082000E-07
+  5.234085256234E-04 vs. 5.230703421152E-04 = -0.065%
 
+Total difference in final_state : 1.215947967812E+00
+Biggest difference (at coord (1,1022)) : 2.487411640002E-06
+  3.316169232130E-02 vs. 3.316417973294E-02 = 0.0075%
+
+Both tests passed!
 ```
 
 ## MPI
