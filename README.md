@@ -367,17 +367,17 @@ Both tests passed!
 ```
 $ ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 Running on host compute106.bc4.acrc.priv
-Time is Fri May 13 16:36:16 BST 2022
+Time is Sat May 14 10:54:26 BST 2022
 Directory is /user/home/az16408/advanced-hpc-lbm
-Slurm job ID is 10339552
+Slurm job ID is 10340840
 This job runs on the following machines:
-compute[106-109]
+compute106
 ==done==
 Reynolds number:                3.377147436142E+00
-Elapsed Init time:                      0.017536 (s)
-Elapsed Compute time:                   15.440940 (s)
+Elapsed Init time:                      0.016895 (s)
+Elapsed Compute time:                   10.330259 (s)
 Elapsed Collate time:                   0.000000 (s)
-Elapsed Total time:                     15.458476 (s)
+Elapsed Total time:                     10.347154 (s)
 $ make check
 python check/check.py --ref-av-vels-file=check/1024x1024.av_vels.dat --ref-final-state-file=check/1024x1024.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
 Total difference in av_vels : 4.106129097791E-03
