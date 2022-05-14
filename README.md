@@ -367,17 +367,17 @@ Both tests passed!
 ```
 $ ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 Running on host compute106.bc4.acrc.priv
-Time is Fri May 13 16:36:16 BST 2022
+Time is Sat May 14 10:54:26 BST 2022
 Directory is /user/home/az16408/advanced-hpc-lbm
-Slurm job ID is 10339552
+Slurm job ID is 10340840
 This job runs on the following machines:
-compute[106-109]
+compute106
 ==done==
 Reynolds number:                3.377147436142E+00
-Elapsed Init time:                      0.017536 (s)
-Elapsed Compute time:                   15.440940 (s)
+Elapsed Init time:                      0.016895 (s)
+Elapsed Compute time:                   10.330259 (s)
 Elapsed Collate time:                   0.000000 (s)
-Elapsed Total time:                     15.458476 (s)
+Elapsed Total time:                     10.347154 (s)
 $ make check
 python check/check.py --ref-av-vels-file=check/1024x1024.av_vels.dat --ref-final-state-file=check/1024x1024.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
 Total difference in av_vels : 4.106129097791E-03
@@ -487,26 +487,26 @@ Both tests passed!
 ```
 $ mpirun -np 112 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 Running on host compute106.bc4.acrc.priv
-Time is Sat May 14 10:54:26 BST 2022
+Time is Fri May 13 14:42:47 BST 2022
 Directory is /user/home/az16408/advanced-hpc-lbm
-Slurm job ID is 10340840
+Slurm job ID is 10339311
 This job runs on the following machines:
-compute106
+compute[106-109]
 ==done==
-Reynolds number:                3.377147436142E+00
-Elapsed Init time:                      0.016895 (s)
-Elapsed Compute time:                   10.330259 (s)
-Elapsed Collate time:                   0.000000 (s)
-Elapsed Total time:                     10.347154 (s)
+Reynolds number:                3.377239465714E+00
+Elapsed Init time:                      0.009041 (s)
+Elapsed Compute time:                   6.620043 (s)
+Elapsed Collate time:                   0.056015 (s)
+Elapsed Total time:                     6.685099 (s)
 $ make check
 python check/check.py --ref-av-vels-file=check/1024x1024.av_vels.dat --ref-final-state-file=check/1024x1024.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
-Total difference in av_vels : 4.106129097791E-03
-Biggest difference (at step 465) : -3.381835082000E-07
-  5.234085256234E-04 vs. 5.230703421152E-04 = -0.065%
+Total difference in av_vels : 3.487499986143E-03
+Biggest difference (at step 326) : -2.434364265000E-07
+  3.626788966358E-04 vs. 3.624354602093E-04 = -0.067%
 
-Total difference in final_state : 1.215947967812E+00
-Biggest difference (at coord (1,1022)) : 2.487411640002E-06
-  3.316169232130E-02 vs. 3.316417973294E-02 = 0.0075%
+Total difference in final_state : 9.898915688519E-01
+Biggest difference (at coord (1,1021)) : 1.978754159998E-06
+  3.326061367989E-02 vs. 3.326259243405E-02 = 0.0059%
 
 Both tests passed!
 ```
