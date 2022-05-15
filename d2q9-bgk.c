@@ -170,6 +170,7 @@ void usage(const char* exe);
 void printrankspeed(t_param* params, float* speed, int rank, char* PrintType, int tt, float tot_u, int tot_cells, float av_vels);
 void printcollatedspeed(t_param* params, float* speed, int rank, char* PrintType, float av_vels);
 void printrankobstacles(t_param* params, int* obstacles, int rank, char* PrintType);
+void write_compute_time(const char* paramfile, const t_param params, double comp_time, char* comp_out_csv);
 
 /*
 ** main program:
@@ -297,6 +298,8 @@ int main(int argc, char* argv[])
     printf("Elapsed Total time:\t\t\t%.6lf (s)\n",   tot_toc  - tot_tic);
     write_values(params, &collated_cells, obstacles, av_vels);
   }
+  // write_compute_time(paramfile, params, comp_toc - comp_tic, "compute_time.csv");
+
   /* Free memory on all ranks */
   finalise(&params, &cells, &tmp_cells, &collated_cells, &obstacles, &av_vels, &sendbuf, &recvbuf, &send_blockbuf, &recv_blockbuf);
 
@@ -1404,4 +1407,42 @@ void printrankobstacles(t_param* params, int* obstacles, int rank, char* PrintTy
         fclose(fp);
     }
   }
+}
+
+void write_compute_time(const char* paramfile, const t_param params, double comp_time, char* comp_out_csv){
+  if (params.rank == MASTER){    
+    /* run below code only once to create column labels for the csv file in write mode(override everything in a file), comment this block after running it*/
+    // /**------------------------------------------------------------------------------------------------------**/
+    // /**/    FILE*   fp;                     /* file pointer */                                              /**/
+    // /**/    fp = fopen(comp_out_csv,"w");                                                                   /**/
+    // /**/    if (fp == NULL){                                                                                /**/
+    // /**/      die("The file could mot be open for some reason", __LINE__, __FILE__);                        /**/
+    // /**/    }                                                                                               /**/
+    // /**/                                                                                                    /**/
+    // /**/    /* write column labels/# cores in the first row*/                                               /**/
+    // /**/    for (int ii = 0; ii <= 112; ii++){                                                              /**/
+    // /**/      (ii==0) ? fprintf(fp,",") : ( (ii==112) ? fprintf(fp,"%d\n",ii) : fprintf(fp,"%d,",ii) );     /**/
+    // /**/    }                                                                                               /**/
+    // /**/                                                                                                    /**/
+    // /**/    fclose(fp);                                                                                     /**/
+    // /**------------------------------------------------------------------------------------------------------**/
+    
+    /* Now run below code repeately to add compute values(row labels/input params) to the csv file in append mode(no override only append existing file)*/
+    FILE*   fp;                     /* file pointer */
+    fp = fopen(comp_out_csv,"a");
+    if (fp == NULL){
+      die("The file could mot be open for some reason", __LINE__, __FILE__);
+    }
+    if (params.size == 1){
+      fprintf(fp,"%dx%d,",params.nx,params.ny);
+      fprintf(fp,"%f,", comp_time);
+    }else if (params.size == 112){
+      fprintf(fp,"%f\n", comp_time);
+    }else{
+      fprintf(fp,"%f,", comp_time);
+    }
+
+    // fclose(fp);
+  }
+
 }
