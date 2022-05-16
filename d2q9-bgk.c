@@ -759,6 +759,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   __assume(params->nx%8==0);
   __assume(params->ny%8==0);
 
+  // omp_set_num_threads(28);
   // #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++)
   { 
@@ -952,34 +953,32 @@ float total_density(const t_param params, t_speed* cells)
   __assume(params.nx%16==0);
   __assume(params.ny%16==0);
   
-    // omp_set_num_threads(28);
-    // #pragma omp parallel for //collapse(2)
-    for (int jj = 0; jj < params.ny; jj++)
-    { 
-      __assume_aligned(cells->speeds_0, 64);
-      __assume_aligned(cells->speeds_1, 64);
-      __assume_aligned(cells->speeds_2, 64);
-      __assume_aligned(cells->speeds_3, 64);
-      __assume_aligned(cells->speeds_4, 64);
-      __assume_aligned(cells->speeds_5, 64);
-      __assume_aligned(cells->speeds_6, 64);
-      __assume_aligned(cells->speeds_7, 64);
-      __assume_aligned(cells->speeds_8, 64);
-      
-      #pragma omp simd
-      for (int ii = 1; ii < (params.local_ncols+1); ii++)
-      {
-        total += cells->speeds_0[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_1[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_2[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_3[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_4[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_5[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_6[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_7[ii + jj*(params.local_ncols+2)]
-               + cells->speeds_8[ii + jj*(params.local_ncols+2)];
-      }
+  for (int jj = 0; jj < params.ny; jj++)
+  { 
+    __assume_aligned(cells->speeds_0, 64);
+    __assume_aligned(cells->speeds_1, 64);
+    __assume_aligned(cells->speeds_2, 64);
+    __assume_aligned(cells->speeds_3, 64);
+    __assume_aligned(cells->speeds_4, 64);
+    __assume_aligned(cells->speeds_5, 64);
+    __assume_aligned(cells->speeds_6, 64);
+    __assume_aligned(cells->speeds_7, 64);
+    __assume_aligned(cells->speeds_8, 64);
+    
+    #pragma omp simd
+    for (int ii = 1; ii < (params.local_ncols+1); ii++)
+    {
+      total += cells->speeds_0[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_1[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_2[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_3[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_4[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_5[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_6[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_7[ii + jj*(params.local_ncols+2)]
+              + cells->speeds_8[ii + jj*(params.local_ncols+2)];
     }
+  }
 
   return total;
 }
