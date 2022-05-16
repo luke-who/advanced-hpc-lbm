@@ -1,5 +1,5 @@
 
-# Calculating % of achieved memory bandwidth
+# Calculate % of achieved memory bandwidth
 To display the below inline math correctly, make sure to have the [xhub](https://github.com/nschloe/xhub) chrome extension as github does not support LaTex Math yet.
 
 The formula for calculating Bandwidth of the 256x256 input is as follows:
@@ -16,3 +16,15 @@ Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Co
     = \frac{2.36(MiBytes) * 4 * 80000}{35.7s} = 21.25GB/s
 ```
  The maximum achievable L2 memory bandwidth is 84.88 GB/s, from here we can calculate the fraction of STREAM bandwidth = $`\frac{21.25}{84.88} = 25\%`$.
+
+# Calculate parallel efficiency
+The formula for calculating parallel efficiency is
+```math
+Parallel Efficiency (PE) = \frac{s}{n}
+
+where s is ration of speedup, n is the processor count.
+```
+Take the result from [1024x1024 speedup with MPI](../plot/MPI/svg/MPI_speedup.svg) as an exaxmple:
+```math
+PE_mpi = \frac{40}{112} = 35.71%
+```
