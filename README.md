@@ -1,4 +1,4 @@
-# HPC Coursework
+# 2D Lattice Boltzmann Method simulation
 
 <p align="center">
     <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png">
