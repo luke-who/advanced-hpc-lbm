@@ -672,6 +672,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   __assume(params->nx%8==0);
   __assume(params->ny%8==0);
 
+  // omp_set_num_threads(28);
   #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++)
   { 
@@ -787,8 +788,6 @@ float total_density(const t_param params, t_speed* cells)
   __assume(params.nx%16==0);
   __assume(params.ny%16==0);
   
-    // omp_set_num_threads(28);
-    #pragma omp parallel for //collapse(2)
     for (int jj = 0; jj < params.ny; jj++)
     { 
       __assume_aligned(cells->speeds_0, 64);
@@ -804,15 +803,15 @@ float total_density(const t_param params, t_speed* cells)
       #pragma omp simd
       for (int ii = 0; ii < params.nx; ii++)
       {
-        total = cells->speeds_0[ii + jj*params.nx]
-              + cells->speeds_1[ii + jj*params.nx]
-              + cells->speeds_2[ii + jj*params.nx]
-              + cells->speeds_3[ii + jj*params.nx]
-              + cells->speeds_4[ii + jj*params.nx]
-              + cells->speeds_5[ii + jj*params.nx]
-              + cells->speeds_6[ii + jj*params.nx]
-              + cells->speeds_7[ii + jj*params.nx]
-              + cells->speeds_8[ii + jj*params.nx];
+        total += cells->speeds_0[ii + jj*params.nx]
+               + cells->speeds_1[ii + jj*params.nx]
+               + cells->speeds_2[ii + jj*params.nx]
+               + cells->speeds_3[ii + jj*params.nx]
+               + cells->speeds_4[ii + jj*params.nx]
+               + cells->speeds_5[ii + jj*params.nx]
+               + cells->speeds_6[ii + jj*params.nx]
+               + cells->speeds_7[ii + jj*params.nx]
+               + cells->speeds_8[ii + jj*params.nx];
       }
     }
 
