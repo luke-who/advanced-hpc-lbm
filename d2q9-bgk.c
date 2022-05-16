@@ -66,7 +66,7 @@
 #define NSPEEDS         9
 #define FINALSTATEFILE  "final_state.dat"
 #define AVVELSFILE      "av_vels.dat"
-// #define DEBUG
+#define DEBUG
 #define MASTER 0  /* master rank */
 
 
@@ -261,7 +261,7 @@ int main(int argc, char* argv[])
     // if(params.rank == MASTER){ (tt==params.maxIters-1) ? printf("timestep(tt):%d\tav_vel:%f\n",tt,av_vels[tt]) : 0; }  /* print the av_vels for the last iteration on MASTER rank */
 #ifdef DEBUG
     float total = total_density(params, &cells);
-    if (tt == params.maxIters-1){
+    // if (tt == params.maxIters-1){
       if (params.rank == MASTER){
         MPI_Reduce(MPI_IN_PLACE, &total, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
         printf("==timestep: %d==\n", tt);
@@ -270,7 +270,7 @@ int main(int argc, char* argv[])
       }else {
         MPI_Reduce(&total, NULL, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
       }
-    }
+    // }
 
 #endif
   }
@@ -969,15 +969,15 @@ float total_density(const t_param params, t_speed* cells)
       #pragma omp simd
       for (int ii = 1; ii < (params.local_ncols+1); ii++)
       {
-        total +=  cells->speeds_0[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_1[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_2[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_3[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_4[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_5[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_6[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_7[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_8[ii + jj*(params.local_ncols+2)];
+        total += cells->speeds_0[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_1[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_2[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_3[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_4[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_5[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_6[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_7[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_8[ii + jj*(params.local_ncols+2)];
       }
     }
 
