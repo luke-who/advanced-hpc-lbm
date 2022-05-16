@@ -1,18 +1,17 @@
 # HPC Coursework
 
 <p align="center">
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png">
+        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png" width = 500/>
+    </a>
+</p>
+
+<p align="center">
     <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif">
         <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif" width = 1000/>
     </a>
 </p>
 
-
-
-<p align="center">
-    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png">
-        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png" width = 1000/>
-    </a>
-</p>
 
 [![Intel C/C++ compiler (icc)](https://img.shields.io/badge/icc-v19.1.3.304-blue?&logo=Intel)](https://www.openmp.org/specifications/)
 [![OpenMP](https://img.shields.io/badge/OpenMP-v4.0-blue?&logo=Intel)](https://www.openmp.org/specifications/)
