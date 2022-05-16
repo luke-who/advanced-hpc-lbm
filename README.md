@@ -525,7 +525,7 @@ Both tests passed!
 ```
 # Debugging
 
-To debug the `timestep()`, uncomment `#define DEBUG` and modify the `#ifdef DEBUG ... #endif` as required, below is the debugging outout from a 128x128 grid:
+To debug the `timestep()`, uncomment `#define DEBUG` and modify the `#ifdef DEBUG ... #endif` as required, below is the debugging outout from a 128x128 grid with MPI:
 
 ```
 ==timestep: 0==
