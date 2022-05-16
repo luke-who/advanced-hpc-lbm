@@ -1,7 +1,13 @@
-# HPC Coursework
+# 2D Lattice Boltzmann Method (LBM) simulation
 
 <p align="center">
-    <a href="https://www.pololu.com/product/3737">
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png">
+        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png" width = 500/>
+    </a>
+</p>
+
+<p align="center">
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif">
         <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif" width = 1000/>
     </a>
 </p>
@@ -517,9 +523,38 @@ Biggest difference (at coord (1,1021)) : 1.978754159998E-06
 
 Both tests passed!
 ```
+# Debugging
+
+To debug the `timestep()`, uncomment `#define DEBUG` and modify the `#ifdef DEBUG ... #endif` as required, below is the debugging outout from a 128x128 grid:
+
+```
+==timestep: 0==
+av velocity: 1.094263279811E-05
+tot density: 1.638402343750E+03
+==timestep: 1==
+av velocity: 1.928607525770E-05
+tot density: 1.638402343750E+03
+==timestep: 2==
+av velocity: 2.676531221368E-05
+tot density: 1.638402343750E+03
+...
+...
+...
+==timestep: 39997==
+av velocity: 1.319575682282E-02
+tot density: 1.638367675781E+03
+==timestep: 39998==
+av velocity: 1.319578755647E-02
+tot density: 1.638367675781E+03
+==timestep: 39999==
+av velocity: 1.319581642747E-02
+tot density: 1.638367431641E+03
+```
 
 # Visualisation
 
 You can view the final state of the simulation by creating a .png image file using a provided Gnuplot script:
 
     $ gnuplot final_state.plt
+
+Output plot can be found in [output/plot/](output/plot/)
