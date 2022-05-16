@@ -1,8 +1,16 @@
 # HPC Coursework
 
 <p align="center">
-    <a href="https://www.pololu.com/product/3737">
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif">
         <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif" width = 1000/>
+    </a>
+</p>
+
+
+
+<p align="center">
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png">
+        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png" width = 1000/>
     </a>
 </p>
 
