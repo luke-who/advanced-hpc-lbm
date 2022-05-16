@@ -12,7 +12,6 @@
     </a>
 </p>
 
-
 [![Intel C/C++ compiler (icc)](https://img.shields.io/badge/icc-v19.1.3.304-blue?&logo=Intel)](https://www.openmp.org/specifications/)
 [![OpenMP](https://img.shields.io/badge/OpenMP-v4.0-blue?&logo=Intel)](https://www.openmp.org/specifications/)
 [![Intel MPI](https://img.shields.io/badge/MPI-2019%20Update%209-informational?&logo=intel)](https://www.intel.com/content/www/us/en/developer/articles/release-notes/mpi-library-release-notes-linux.html)
@@ -523,6 +522,33 @@ Biggest difference (at coord (1,1021)) : 1.978754159998E-06
   3.326061367989E-02 vs. 3.326259243405E-02 = 0.0059%
 
 Both tests passed!
+```
+# Debugging
+
+To debug the `timestep()`, uncomment `#define DEBUG` and modify the `#ifdef DEBUG ... #endif` as required, below is the debugging outout from a 128x128 grid:
+
+```
+==timestep: 0==
+av velocity: 1.094263279811E-05
+tot density: 1.638402343750E+03
+==timestep: 1==
+av velocity: 1.928607525770E-05
+tot density: 1.638402343750E+03
+==timestep: 2==
+av velocity: 2.676531221368E-05
+tot density: 1.638402343750E+03
+...
+...
+...
+==timestep: 39997==
+av velocity: 1.319575682282E-02
+tot density: 1.638367675781E+03
+==timestep: 39998==
+av velocity: 1.319578755647E-02
+tot density: 1.638367675781E+03
+==timestep: 39999==
+av velocity: 1.319581642747E-02
+tot density: 1.638367431641E+03
 ```
 
 # Visualisation
