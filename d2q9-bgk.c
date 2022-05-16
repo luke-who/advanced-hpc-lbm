@@ -66,7 +66,7 @@
 #define NSPEEDS         9
 #define FINALSTATEFILE  "final_state.dat"
 #define AVVELSFILE      "av_vels.dat"
-#define DEBUG
+// #define DEBUG
 #define MASTER 0  /* master rank */
 
 
