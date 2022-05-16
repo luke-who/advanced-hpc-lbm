@@ -21,10 +21,10 @@ Bandwidth = \frac{size\_of\_one\_grid * (timestep(params.maxIters))}{Elapsed\ Co
 The formula for calculating parallel efficiency is
 ```math
 Parallel Efficiency (PE) = \frac{s}{n}
-
-where s is ration of speedup, n is the processor count.
 ```
+(where $`s`$ is ration of speedup, $`n`$ is the processor count).
+
 Take the result from [1024x1024 speedup with MPI](../plot/MPI/svg/MPI_speedup.svg) as an exaxmple:
 ```math
-PE_mpi = \frac{40}{112} = 35.71%
+PE_{mpi} = \frac{40}{112} = 35.71%
 ```
