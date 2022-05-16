@@ -136,7 +136,7 @@ int cal_tot_cells(t_param* params, int* obstacles);
 // float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
 int halo_exchange(t_param params, t_speed* restrict cells, float* sendbuf, float* recvbuf);
-float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
+float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles);
 int collate_cells(const t_param params, t_speed* restrict cells, t_speed* restrict collated_cells, float* send_blockbuf, float* recv_blockbuf);
 int write_values(const t_param params, t_speed* collated_cells, int* obstacles, float* av_vels);
 
@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
     // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, MASTER, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;     /* print speeds_5 of a certain iteration on MASTER rank before halo*/
     halo_exchange(params, &cells, sendbuf, recvbuf);
     // (tt == params.maxIters-1) ? printrankspeed(&params, cells.speeds_5, MASTER, "cells_speed5.csv",tt, 0, params.tot_cells, av_vels[tt]) : 0;     /* print speeds_5 of a certain iteration on MASTER rank after halo*/
-    float tot_u = propa_rebd_collsn_av(params, &cells, &tmp_cells, obstacles);  /* main compute step */
+    float tot_u = timestep(params, &cells, &tmp_cells, obstacles);  /* main compute step */
     if(params.rank == MASTER){
       // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;         /* print the value of tot_u on MASTER rank before reduction */
       if (params.size > 1){
@@ -243,8 +243,7 @@ int main(int argc, char* argv[])
 
       // (tt==params.maxIters-1) ? printf("av_vels[%d]: %f \n",tt,av_vels[tt]) : 0;                                     /* print av_vel[tt] */
       // (tt==params.maxIters-1) ? printf("rank: %d \t params.tot_cells: %d \n",params.rank,params.tot_cells) : 0;      /* print stored tot_cells value */
-    }
-    else{
+    }else{
       // (tt==0) ? printf("rank: %d \t tot_u[%d]: %f \n",params.rank,tt,tot_u) : 0;     /* print the value of tot_u on other ranks other than MASTER rank */
       MPI_Reduce(&tot_u, NULL, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
     }
@@ -262,14 +261,17 @@ int main(int argc, char* argv[])
     // if(params.rank == MASTER){ (tt==params.maxIters-1) ? printf("timestep(tt):%d\tav_vel:%f\n",tt,av_vels[tt]) : 0; }  /* print the av_vels for the last iteration on MASTER rank */
 #ifdef DEBUG
     float total = total_density(params, &cells);
-    float total_MASTER = 0.f;
-    MPI_Reduce(&total, &total_MASTER, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
-    if (params.rank == MASTER){
-      printf("==timestep: %d==\n", tt);
-      printf("av velocity: %.12E\n", av_vels[tt]);
-      // printf("tot density: %.12E\n", total_density(params, &cells));
-      printf("tot density: %.12E\n", total_MASTER);
-    }
+    // if (tt == params.maxIters-1){
+      if (params.rank == MASTER){
+        MPI_Reduce(MPI_IN_PLACE, &total, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
+        printf("==timestep: %d==\n", tt);
+        printf("av velocity: %.12E\n", av_vels[tt]);
+        printf("tot density: %.12E\n", total);
+      }else {
+        MPI_Reduce(&total, NULL, 1, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
+      }
+    // }
+
 #endif
   }
   // printrankobstacles(&params, obstacles, MASTER, "obstacles_rank.csv");  /* print the obstacle grid for this rank */
@@ -372,7 +374,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
   return EXIT_SUCCESS;
 }
 
-float propa_rebd_collsn_av(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
+float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, int* obstacles)
 {
   float* restrict cells_speeds_0 = cells->speeds_0;
   float* restrict cells_speeds_1 = cells->speeds_1;
@@ -967,15 +969,15 @@ float total_density(const t_param params, t_speed* cells)
       #pragma omp simd
       for (int ii = 1; ii < (params.local_ncols+1); ii++)
       {
-        total +=  cells->speeds_0[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_1[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_2[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_3[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_4[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_5[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_6[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_7[ii + jj*(params.local_ncols+2)]
-                + cells->speeds_8[ii + jj*(params.local_ncols+2)];
+        total += cells->speeds_0[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_1[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_2[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_3[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_4[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_5[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_6[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_7[ii + jj*(params.local_ncols+2)]
+               + cells->speeds_8[ii + jj*(params.local_ncols+2)];
       }
     }
 
