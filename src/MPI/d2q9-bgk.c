@@ -968,7 +968,7 @@ float total_density(const t_param params, t_speed* cells)
     #pragma omp simd
     for (int ii = 1; ii < (params.local_ncols+1); ii++)
     {
-      total += cells->speeds_0[ii + jj*(params.local_ncols+2)]
+      total +=  cells->speeds_0[ii + jj*(params.local_ncols+2)]
               + cells->speeds_1[ii + jj*(params.local_ncols+2)]
               + cells->speeds_2[ii + jj*(params.local_ncols+2)]
               + cells->speeds_3[ii + jj*(params.local_ncols+2)]
