@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif">
-        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/mpi/128x128_mpi.gif" width = 1000/>
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/runtime/mpi/128x128_mpi.gif">
+        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/runtime/mpi/128x128_mpi.gif" width = 1000/>
     </a>
 </p>
 
