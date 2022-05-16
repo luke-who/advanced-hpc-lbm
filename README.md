@@ -1,14 +1,14 @@
 # 2D Lattice Boltzmann Method (LBM) simulation
 
 <p align="center">
-    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png">
-        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/plot/final_state_128x128.png" width = 500/>
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/results/final_state/final_state_128x128.png">
+        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/results/final_state/final_state_128x128.png" width = 500/>
     </a>
 </p>
 
 <p align="center">
-    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/runtime/mpi/128x128_mpi.gif">
-        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/output/runtime/mpi/128x128_mpi.gif" width = 1000/>
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/results/runtime/mpi/128x128_mpi.gif">
+        <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/results/runtime/mpi/128x128_mpi.gif" width = 1000/>
     </a>
 </p>
 
@@ -557,4 +557,4 @@ You can view the final state of the simulation by creating a .png image file usi
 
     $ gnuplot final_state.plt
 
-Output plot can be found in [output/plot/](output/plot/)
+Output plot can be found in [results/final_state/](results/final_state/)
