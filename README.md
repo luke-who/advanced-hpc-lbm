@@ -12,6 +12,8 @@
     </a>
 </p>
 
+<!-- [![asciicast](https://asciinema.org/a/eWkmFGJkgGBRbxRrPOGcSrEFd.svg)](https://asciinema.org/a/eWkmFGJkgGBRbxRrPOGcSrEFd) -->
+
 [![Intel C/C++ compiler (icc)](https://img.shields.io/badge/icc-v19.1.3.304-blue?&logo=Intel)](https://www.openmp.org/specifications/)
 [![OpenMP](https://img.shields.io/badge/OpenMP-v4.0-blue?&logo=Intel)](https://www.openmp.org/specifications/)
 [![Intel MPI](https://img.shields.io/badge/MPI-2019%20Update%209-informational?&logo=intel)](https://www.intel.com/content/www/us/en/developer/articles/release-notes/mpi-library-release-notes-linux.html)
