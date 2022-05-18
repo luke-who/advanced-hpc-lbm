@@ -288,7 +288,7 @@ Biggest difference (at coord (340,6)) : -1.225732970000E-05
   3.337003663182E-02 vs. 3.335777930212E-02 = -0.037%
 
 ```
-## OpemMP
+## OpenMP
 
 OpenMP Running with 28 cores, run times were taken on a Phase 4 node using the Intel (icc) compiler and certain compiler flags as found in the Makefile:
 
