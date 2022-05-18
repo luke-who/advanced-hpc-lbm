@@ -26,5 +26,5 @@ Parallel\ Efficiency (PE) = \frac{s}{n}
 
 Take the result from [MPI_speedup.svg](../plot/MPI/svg/MPI_speedup.svg) as an exaxmple, calculating PE of a 1024x1024 grid running with MPI and 112 cores:
 ```math
-PE_{mpi} = \frac{40}{112} = 35.71%
+PE_{mpi} = \frac{40}{112} = 35.71\%
 ```
