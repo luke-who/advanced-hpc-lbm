@@ -558,3 +558,7 @@ You can view the final state of the simulation by creating a .png image file usi
     $ gnuplot final_state.plt
 
 Output plot can be found in [results/final_state/](results/final_state/)
+
+## License
+
+[MIT](LICENSE)
