@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/results/runtime/mpi/128x128_mpi.gif">
+    <a href="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/results/runtime/mpi/128x128_mpi_asciinema.gif">
         <img src="https://github.com/luke-who/advanced-hpc-lbm/blob/bcp4-slurm/results/runtime/mpi/128x128_mpi_asciinema.gif" width = 1000/>
     </a>
 </p>
