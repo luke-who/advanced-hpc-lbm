@@ -55,7 +55,7 @@ mpirun -np 112 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 # advixe-cl --collect=roofline --project-dir=./advi_results -- ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
-# srun --mpi=pmi2 advixe-cl -collect survey -project-dir ./advisor ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+# srun --mpi=pmi2 advixe-cl -collect survey -project-dir ./advi_results ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
 #---- opens up advisor gui ----#
 # advisor-gui advi_results
