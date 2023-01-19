@@ -18,7 +18,7 @@
 [![OpenMP](https://img.shields.io/badge/OpenMP-v4.0-blue?&logo=Intel)](https://www.openmp.org/specifications/)
 [![Intel MPI](https://img.shields.io/badge/MPI-2019%20Update%209-informational?&logo=intel)](https://www.intel.com/content/www/us/en/developer/articles/release-notes/mpi-library-release-notes-linux.html)
 -------------------------------------------------------------------------------------------------------------------------------------
-Coursework for the Advanced High Performance Computing class.
+Coursework for the Advanced High Performance Computing class. Created a scalable program that could run on the world’s fastest supercomputer. The work included compiler optimisation, integrating OpenMP for shared memory and MPI for distributed memory architecture.
 
 * Source code is in the [d2q9-bgk.c](d2q9-bgk.c) file
 * Results checking scripts are in the [check/](check/) directory
