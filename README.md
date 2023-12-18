@@ -24,7 +24,7 @@ Coursework for the Advanced High Performance Computing class. Created a scalable
 * Results checking scripts are in the [check/](check/) directory
 
 ## Compiling and running
-
+This project was developed and tested on the supercomputer [BlueCrystal Phase 4](https://www.bristol.ac.uk/acrc/high-performance-computing/hpc-systems-tech-specs/)
 ### Set env variables
 To set environment variables for OpenMP and MPI,
     
